@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+enum GalleryCategory {
+  PHOTOS
+  VIDEOS
+  ART
+}
+
+enum AnnouncementType {
+  UPDATE
+  BOARD
+}
+
+enum VideoLayout {
+  GRID
+  CAROUSEL
+}
+
+model User {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model LetterSubmission {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  messageEn String
+  messageAr String?
+  tiktok    String?
+  status    SubmissionStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+  reviewedAt DateTime?
+  updatedAt DateTime         @updatedAt
+}
+
+model GallerySubmission {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  caption   String
+  category  GalleryCategory
+  src       String?
+  embed     String?
+  status    SubmissionStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+  reviewedAt DateTime?
+  updatedAt DateTime         @updatedAt
+}
+
+model ContactSubmission {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  email     String
+  type      String
+  message   String
+  status    SubmissionStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+  reviewedAt DateTime?
+}
+
+model Announcement {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  text      String
+  date      DateTime
+  type      AnnouncementType
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+model AboutContent {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  key        String   @unique @default("primary")
+  story      String
+  mission    String
+  guidelines String[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model VideoCollection {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  layout      VideoLayout @default(GRID)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  items       VideoItem[]
+}
+
+model VideoItem {
+  id           String         @id @default(auto()) @map("_id") @db.ObjectId
+  title        String
+  url          String
+  collectionId String         @db.ObjectId
+  collection   VideoCollection @relation(fields: [collectionId], references: [id])
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}

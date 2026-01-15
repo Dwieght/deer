@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" role="img" aria-label="January 13 flowers">
+  <defs>
+    <linearGradient id="gf1" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#fffaf4" />
+      <stop offset="1" stop-color="#b8d2ba" />
+    </linearGradient>
+  </defs>
+  <rect width="900" height="600" fill="url(#gf1)" />
+  <circle cx="240" cy="250" r="110" fill="#f4d7ce" opacity="0.7" />
+  <circle cx="380" cy="280" r="110" fill="#f2c77e" opacity="0.6" />
+  <circle cx="520" cy="250" r="110" fill="#b8d2ba" opacity="0.7" />
+  <path d="M450 520c0-90-40-140-100-180" stroke="#2a3d31" stroke-width="6" fill="none" />
+  <path d="M450 520c0-90 40-140 100-180" stroke="#2a3d31" stroke-width="6" fill="none" />
+  <text x="60" y="90" fill="#2a3d31" font-size="36" font-family="Fraunces, serif">January 13, 2026</text>
+  <text x="60" y="130" fill="#2a3d31" font-size="22" font-family="Work Sans, sans-serif">Flowers of gratitude</text>
+</svg>

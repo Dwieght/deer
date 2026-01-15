@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" role="img" aria-label="January 13 letters">
+  <defs>
+    <linearGradient id="gf3" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#fffaf4" />
+      <stop offset="1" stop-color="#f4d7ce" />
+    </linearGradient>
+  </defs>
+  <rect width="900" height="600" fill="url(#gf3)" />
+  <rect x="180" y="180" width="320" height="380" rx="26" fill="#b8d2ba" opacity="0.75" />
+  <rect x="330" y="140" width="350" height="400" rx="26" fill="#f2c77e" opacity="0.7" />
+  <path d="M230 260h220m-220 60h200m-200 60h160m-160 60h120" stroke="#2a3d31" stroke-width="6" stroke-linecap="round" />
+  <text x="60" y="90" fill="#2a3d31" font-size="36" font-family="Fraunces, serif">January 13, 2026</text>
+  <text x="60" y="130" fill="#2a3d31" font-size="22" font-family="Work Sans, sans-serif">Letters bundle</text>
+</svg>

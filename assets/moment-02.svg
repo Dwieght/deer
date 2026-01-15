@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-label="January 13 gift day">
+  <defs>
+    <linearGradient id="bg2" x1="0" x2="1" y1="1" y2="0">
+      <stop offset="0" stop-color="#fffaf4" />
+      <stop offset="1" stop-color="#7da384" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#bg2)" />
+  <rect x="140" y="200" width="320" height="420" rx="28" fill="#f4d7ce" opacity="0.6" />
+  <rect x="520" y="160" width="520" height="480" rx="36" fill="#b8d2ba" opacity="0.75" />
+  <path d="M240 420h160m-80-80v160" stroke="#2a3d31" stroke-width="8" stroke-linecap="round" />
+  <path d="M660 520c80-80 160-80 240 0" stroke="#2a3d31" stroke-width="8" fill="none" />
+  <text x="160" y="120" fill="#2a3d31" font-size="44" font-family="Fraunces, serif">
+    January 13, 2026
+  </text>
+  <text x="160" y="170" fill="#2a3d31" font-size="24" font-family="Work Sans, sans-serif">
+    Deer Army gift day glow
+  </text>
+</svg>

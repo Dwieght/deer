@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-label="Tommy and Ghazel moment">
+  <defs>
+    <linearGradient id="bg1" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#fdf7ef" />
+      <stop offset="1" stop-color="#b8d2ba" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#bg1)" />
+  <circle cx="300" cy="260" r="160" fill="#f4d7ce" opacity="0.6" />
+  <circle cx="900" cy="500" r="220" fill="#f2c77e" opacity="0.45" />
+  <path
+    d="M420 560c60-70 130-90 200-90s140 20 200 90"
+    stroke="#3d5b43"
+    stroke-width="6"
+    fill="none"
+    stroke-linecap="round"
+  />
+  <path
+    d="M520 480c-10-40-40-70-70-80m200 80c10-40 40-70 70-80"
+    stroke="#3d5b43"
+    stroke-width="6"
+    fill="none"
+    stroke-linecap="round"
+  />
+  <text x="100" y="120" fill="#2a3d31" font-size="46" font-family="Fraunces, serif">
+    Tommy &amp; Ghazel
+  </text>
+  <text x="100" y="180" fill="#2a3d31" font-size="24" font-family="Work Sans, sans-serif">
+    Quiet smiles after a long stream
+  </text>
+</svg>

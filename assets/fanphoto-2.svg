@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="Fan photo">
+  <defs>
+    <linearGradient id="fp2" x1="0" x2="1" y1="1" y2="0">
+      <stop offset="0" stop-color="#fdf7ef" />
+      <stop offset="1" stop-color="#7da384" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#fp2)" />
+  <rect x="120" y="140" width="560" height="340" rx="34" fill="#fffaf4" opacity="0.85" />
+  <path d="M200 320h400" stroke="#2a3d31" stroke-width="8" stroke-linecap="round" />
+  <path d="M260 250h280" stroke="#2a3d31" stroke-width="6" stroke-linecap="round" />
+  <path d="M260 390h280" stroke="#2a3d31" stroke-width="6" stroke-linecap="round" />
+  <text x="60" y="90" fill="#2a3d31" font-size="30" font-family="Fraunces, serif">Community memory wall</text>
+</svg>
