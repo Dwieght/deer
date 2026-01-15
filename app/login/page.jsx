@@ -86,6 +86,11 @@ export default function LoginPage() {
               </p>
             ) : null}
           </form>
+          <div className="action-row" style={{ marginTop: "16px" }}>
+            <a className="ghost-button" href="/">
+              Back to Home
+            </a>
+          </div>
         </div>
       </section>
     </main>

@@ -5,9 +5,34 @@ import { DEFAULT_GIFTS } from "./content";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function normalizeImageUrl(url) {
+  const value = String(url || "").trim();
+  if (!value) {
+    return "";
+  }
+  if (!value.includes("drive.google.com")) {
+    return value;
+  }
+  const fileMatch = value.match(/\/file\/d\/([^/]+)/);
+  if (fileMatch) {
+    return `https://drive.google.com/uc?export=view&id=${fileMatch[1]}`;
+  }
+  const idMatch = value.match(/[?&]id=([^&]+)/);
+  if (idMatch) {
+    return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
+  }
+  if (value.includes("/uc?")) {
+    if (value.includes("export=")) {
+      return value.replace("export=download", "export=view");
+    }
+    return value.includes("?") ? `${value}&export=view` : `${value}?export=view`;
+  }
+  return value;
+}
+
 async function getApprovedData() {
   try {
-    const [letters, gallery, announcements, about, videoCollections] = await Promise.all([
+    const [letters, gallery, announcements, about, videoCollections, paymentQrs] = await Promise.all([
       prisma.letterSubmission.findMany({
         where: { status: "APPROVED" },
         orderBy: { createdAt: "desc" },
@@ -27,6 +52,9 @@ async function getApprovedData() {
             orderBy: { createdAt: "asc" },
           },
         },
+      }),
+      prisma.paymentQrCode.findMany({
+        orderBy: { createdAt: "asc" },
       }),
     ]);
 
@@ -60,7 +88,7 @@ async function getApprovedData() {
           approvedGallery.art.push({
             name: item.name,
             caption: item.caption,
-            src: item.src,
+            src: normalizeImageUrl(item.src),
           });
         }
         return;
@@ -69,7 +97,7 @@ async function getApprovedData() {
         approvedGallery.photos.push({
           name: item.name,
           caption: item.caption,
-          src: item.src,
+          src: normalizeImageUrl(item.src),
         });
       }
     });
@@ -93,6 +121,12 @@ async function getApprovedData() {
           url: item.url,
         })),
       })),
+      paymentQrs: paymentQrs.map((qr) => ({
+        id: qr.id,
+        title: qr.title,
+        note: qr.note,
+        imageUrl: normalizeImageUrl(qr.imageUrl),
+      })),
       about: about
         ? {
             story: about.story,
@@ -108,13 +142,14 @@ async function getApprovedData() {
       updates: [],
       announcements: [],
       videoCollections: [],
+      paymentQrs: [],
       about: null,
     };
   }
 }
 
 export default async function HomePage() {
-  const { letters, gallery, updates, announcements, about, videoCollections } = await getApprovedData();
+  const { letters, gallery, updates, announcements, about, videoCollections, paymentQrs } = await getApprovedData();
 
   return (
     <HomeClient
@@ -125,6 +160,7 @@ export default async function HomePage() {
       announcements={announcements}
       about={about}
       videoCollections={videoCollections}
+      paymentQrs={paymentQrs}
     />
   );
 }

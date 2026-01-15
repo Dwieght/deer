@@ -112,3 +112,24 @@ model VideoItem {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 }
+
+model PaymentQrCode {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String?
+  note      String?
+  imageUrl  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  submissions PaymentSubmission[]
+}
+
+model PaymentSubmission {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  senderName      String
+  referenceNumber String
+  qrCodeId        String?  @db.ObjectId
+  qrCode          PaymentQrCode? @relation(fields: [qrCodeId], references: [id])
+  matched         Boolean  @default(false)
+  matchedAt       DateTime?
+  createdAt       DateTime @default(now())
+}

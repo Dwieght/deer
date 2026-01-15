@@ -84,6 +84,24 @@ function normalizeDriveUrl(url) {
   return url;
 }
 
+function normalizeDriveImageUrl(url) {
+  if (!url.includes("drive.google.com")) {
+    return url;
+  }
+  const fileMatch = url.match(/\/file\/d\/([^/]+)/);
+  if (fileMatch) {
+    return `https://drive.google.com/uc?export=view&id=${fileMatch[1]}`;
+  }
+  const idMatch = url.match(/[?&]id=([^&]+)/);
+  if (idMatch) {
+    return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
+  }
+  if (url.includes("/uc?")) {
+    return url.replace("export=download", "export=view");
+  }
+  return url;
+}
+
 function normalizeVideoUrl(url) {
   const trimmed = String(url || "").trim();
   if (!trimmed) {
@@ -255,12 +273,13 @@ export async function createGalleryItem(_prevState, formData) {
   const name = String(formData.get("name") || "").trim();
   const caption = String(formData.get("caption") || "").trim();
   const category = String(formData.get("category") || "").trim().toUpperCase();
-  const src = String(formData.get("src") || "").trim();
+  const srcRaw = String(formData.get("src") || "").trim();
   const embedRaw = String(formData.get("embed") || "").trim();
   if (!name || !caption || !GALLERY_CATEGORIES.has(category)) {
     return fail("Name, caption, and category are required.");
   }
   const embed = category === "VIDEOS" ? normalizeEmbedUrl(embedRaw) : "";
+  const src = category === "VIDEOS" ? "" : normalizeDriveImageUrl(srcRaw);
   if (category === "VIDEOS" && !embed) {
     return fail("A video URL is required.");
   }
@@ -293,12 +312,13 @@ export async function updateGalleryItem(_prevState, formData) {
   const name = String(formData.get("name") || "").trim();
   const caption = String(formData.get("caption") || "").trim();
   const category = String(formData.get("category") || "").trim().toUpperCase();
-  const src = String(formData.get("src") || "").trim();
+  const srcRaw = String(formData.get("src") || "").trim();
   const embedRaw = String(formData.get("embed") || "").trim();
   if (!id || !name || !caption || !GALLERY_CATEGORIES.has(category)) {
     return fail("Name, caption, and category are required.");
   }
   const embed = category === "VIDEOS" ? normalizeEmbedUrl(embedRaw) : "";
+  const src = category === "VIDEOS" ? "" : normalizeDriveImageUrl(srcRaw);
   if (category === "VIDEOS" && !embed) {
     return fail("A video URL is required.");
   }
@@ -393,6 +413,115 @@ export async function upsertUser(_prevState, formData) {
     return ok("Admin user saved.");
   } catch (error) {
     return fail("Could not save admin user.");
+  }
+}
+
+export async function createPaymentQr(_prevState, formData) {
+  requireSession();
+  const title = String(formData.get("title") || "").trim();
+  const note = String(formData.get("note") || "").trim();
+  const imageUrlRaw = String(formData.get("imageUrl") || "").trim();
+  const imageUrl = normalizeDriveImageUrl(imageUrlRaw);
+  if (!imageUrl) {
+    return fail("QR code image URL is required.");
+  }
+  try {
+    await prisma.paymentQrCode.create({
+      data: {
+        title: title || null,
+        note: note || null,
+        imageUrl,
+      },
+    });
+    revalidatePath("/");
+    revalidatePath("/dashboard");
+    return ok("QR code added.");
+  } catch (error) {
+    return fail("Could not add QR code.");
+  }
+}
+
+export async function updatePaymentQr(_prevState, formData) {
+  requireSession();
+  const id = String(formData.get("id") || "");
+  const title = String(formData.get("title") || "").trim();
+  const note = String(formData.get("note") || "").trim();
+  const imageUrlRaw = String(formData.get("imageUrl") || "").trim();
+  const imageUrl = normalizeDriveImageUrl(imageUrlRaw);
+  if (!id || !imageUrl) {
+    return fail("QR code image URL is required.");
+  }
+  try {
+    await prisma.paymentQrCode.update({
+      where: { id },
+      data: {
+        title: title || null,
+        note: note || null,
+        imageUrl,
+      },
+    });
+    revalidatePath("/");
+    revalidatePath("/dashboard");
+    return ok("QR code updated.");
+  } catch (error) {
+    return fail("Could not update QR code.");
+  }
+}
+
+export async function deletePaymentQr(_prevState, formData) {
+  requireSession();
+  const id = String(formData.get("id") || "");
+  if (!id) {
+    return fail("Missing QR id.");
+  }
+  try {
+    await prisma.paymentSubmission.updateMany({
+      where: { qrCodeId: id },
+      data: { qrCodeId: null },
+    });
+    await prisma.paymentQrCode.delete({ where: { id } });
+    revalidatePath("/");
+    revalidatePath("/dashboard");
+    return ok("QR code deleted.");
+  } catch (error) {
+    return fail("Could not delete QR code.");
+  }
+}
+
+export async function updatePaymentSubmission(_prevState, formData) {
+  requireSession();
+  const id = String(formData.get("id") || "");
+  const matched = String(formData.get("matched") || "") === "true";
+  if (!id) {
+    return fail("Missing submission id.");
+  }
+  try {
+    await prisma.paymentSubmission.update({
+      where: { id },
+      data: {
+        matched,
+        matchedAt: matched ? new Date() : null,
+      },
+    });
+    revalidatePath("/dashboard");
+    return ok(matched ? "Marked as matched." : "Marked as unmatched.");
+  } catch (error) {
+    return fail("Could not update submission.");
+  }
+}
+
+export async function deletePaymentSubmission(_prevState, formData) {
+  requireSession();
+  const id = String(formData.get("id") || "");
+  if (!id) {
+    return fail("Missing submission id.");
+  }
+  try {
+    await prisma.paymentSubmission.delete({ where: { id } });
+    revalidatePath("/dashboard");
+    return ok("Submission deleted.");
+  } catch (error) {
+    return fail("Could not delete submission.");
   }
 }
 

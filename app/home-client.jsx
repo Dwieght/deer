@@ -60,6 +60,74 @@ function extractYouTubeId(url) {
   return null;
 }
 
+function extractDriveFileId(url) {
+  if (!url || !url.includes("drive.google.com")) {
+    return "";
+  }
+  const fileMatch = url.match(/\/file\/d\/([^/]+)/);
+  if (fileMatch) {
+    return fileMatch[1];
+  }
+  const idMatch = url.match(/[?&]id=([^&]+)/);
+  if (idMatch) {
+    return idMatch[1];
+  }
+  return "";
+}
+
+function driveThumbnailUrl(url) {
+  const id = extractDriveFileId(url);
+  if (!id) {
+    return "";
+  }
+  return `https://drive.google.com/thumbnail?id=${id}&sz=w1000`;
+}
+
+function normalizeImageUrl(url) {
+  const value = String(url || "").trim();
+  if (!value) {
+    return "";
+  }
+  if (!value.includes("drive.google.com")) {
+    return value;
+  }
+  const fileMatch = value.match(/\/file\/d\/([^/]+)/);
+  if (fileMatch) {
+    return `https://drive.google.com/uc?export=view&id=${fileMatch[1]}`;
+  }
+  const idMatch = value.match(/[?&]id=([^&]+)/);
+  if (idMatch) {
+    return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
+  }
+  if (value.includes("/uc?")) {
+    if (value.includes("export=")) {
+      return value.replace("export=download", "export=view");
+    }
+    return value.includes("?") ? `${value}&export=view` : `${value}?export=view`;
+  }
+  return value;
+}
+
+function normalizeQrImageUrl(url) {
+  return normalizeImageUrl(url);
+}
+
+function getQrPreviewUrl(url) {
+  const thumb = driveThumbnailUrl(url);
+  return thumb || normalizeQrImageUrl(url);
+}
+
+function applyImageFallback(event, fallback) {
+  const target = event.currentTarget;
+  if (fallback && target.src !== fallback) {
+    target.src = fallback;
+    return;
+  }
+  if (!target.src.includes("/assets/deer-mark.svg")) {
+    target.src = "/assets/deer-mark.svg";
+  }
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -170,6 +238,7 @@ export default function HomeClient({
   announcements = [],
   about = null,
   videoCollections = [],
+  paymentQrs = [],
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeGalleryTab, setActiveGalleryTab] = useState("photos");
@@ -178,6 +247,9 @@ export default function HomeClient({
   const [letterMessage, setLetterMessage] = useState(null);
   const [galleryMessage, setGalleryMessage] = useState(null);
   const [contactMessage, setContactMessage] = useState(null);
+  const [paymentMessage, setPaymentMessage] = useState(null);
+  const [activeQrId, setActiveQrId] = useState(paymentQrs[0]?.id || "");
+  const [qrModal, setQrModal] = useState({ open: false, qr: null });
   const [copyLabel, setCopyLabel] = useState("Copy Link");
 
   const galleryLists = useMemo(
@@ -215,11 +287,45 @@ export default function HomeClient({
   }, []);
 
   useEffect(() => {
+    if (!qrModal.open) {
+      return undefined;
+    }
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [qrModal.open]);
+
+  useEffect(() => {
+    if (!qrModal.open) {
+      return undefined;
+    }
+    const handleKey = (event) => {
+      if (event.key === "Escape") {
+        setQrModal({ open: false, qr: null });
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [qrModal.open]);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       setCarouselIndex((prev) => (prev + 1) % CAROUSEL_SLIDES.length);
     }, 7000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!paymentQrs.length) {
+      setActiveQrId("");
+      return;
+    }
+    if (!activeQrId || !paymentQrs.some((qr) => qr.id === activeQrId)) {
+      setActiveQrId(paymentQrs[0].id);
+    }
+  }, [paymentQrs, activeQrId]);
 
   const handleShare = async (type) => {
     const url = window.location.href;
@@ -392,6 +498,53 @@ export default function HomeClient({
     }
   };
 
+  const handlePaymentSubmit = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const payload = {
+      senderName: String(formData.get("senderName") || "").trim(),
+      referenceNumber: String(formData.get("referenceNumber") || "").trim(),
+      qrCodeId: String(formData.get("qrCodeId") || "").trim(),
+    };
+
+    if (!payload.senderName || !payload.referenceNumber) {
+      setPaymentMessage({ type: "error", text: "Please add your name and the payment reference number." });
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/submissions/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setPaymentMessage({ type: "error", text: data?.error || "Submission failed." });
+        return;
+      }
+      form.reset();
+      setPaymentMessage({ type: "success", text: "Reference received! Thank you for your support." });
+    } catch (error) {
+      setPaymentMessage({ type: "error", text: "Submission failed. Please try again." });
+    }
+  };
+
+  const activeQr = paymentQrs.find((qr) => qr.id === activeQrId) || paymentQrs[0] || null;
+  const activeQrImage = activeQr?.imageUrl ? getQrPreviewUrl(activeQr.imageUrl) : "";
+  const headerQrImage = activeQrImage || "/assets/deer-mark.svg";
+  const headerQrAlt = activeQrImage ? "Support QR" : "Support icon";
+  const headerQrFallback = activeQr?.imageUrl ? normalizeQrImageUrl(activeQr.imageUrl) : "";
+
+  const openQrModal = (qr) => {
+    if (!qr) {
+      return;
+    }
+    setActiveQrId(qr.id);
+    setQrModal({ open: true, qr });
+  };
+
   const handleLightboxOpen = (src, caption) => {
     setLightbox({ open: true, src, caption });
   };
@@ -424,6 +577,7 @@ export default function HomeClient({
           <a href="#gifts">Gifts &amp; Surprises</a>
           <a href="#videos">Videos</a>
           <a href="#gallery">Fan Gallery</a>
+          <a href="#support">Support</a>
           <a href="#announcements">Announcements</a>
           <a href="#about">About Us</a>
           <a href="#contact">Contact</a>
@@ -431,6 +585,14 @@ export default function HomeClient({
           <a href="/dashboard">Dashboard</a>
         </nav>
         <div className="nav-actions">
+          <a className="header-qr" href="#support" aria-label="Support QR code">
+            <img
+              src={headerQrImage}
+              alt={headerQrAlt}
+              onError={(event) => applyImageFallback(event, headerQrFallback)}
+            />
+            <span>Support</span>
+          </a>
           <button
             className="menu-toggle"
             type="button"
@@ -462,6 +624,9 @@ export default function HomeClient({
         <a href="#gallery" onClick={() => setMobileMenuOpen(false)}>
           Fan Gallery
         </a>
+        <a href="#support" onClick={() => setMobileMenuOpen(false)}>
+          Support
+        </a>
         <a href="#announcements" onClick={() => setMobileMenuOpen(false)}>
           Announcements
         </a>
@@ -477,6 +642,15 @@ export default function HomeClient({
         <a href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
           Dashboard
         </a>
+        {activeQrImage ? (
+          <div className="mobile-qr-card">
+            <p className="mobile-qr-title">{activeQr.title || "Support the Deer Army"}</p>
+            <img src={activeQrImage} alt="Support QR code" />
+            <a href="#support" onClick={() => setMobileMenuOpen(false)}>
+              Go to Support
+            </a>
+          </div>
+        ) : null}
       </aside>
 
       <main>
@@ -528,7 +702,13 @@ export default function HomeClient({
                     key={slide.src}
                     className={`carousel-slide ${index === carouselIndex ? "is-active" : ""}`}
                   >
-                    <img src={slide.src} alt={slide.alt} loading="lazy" />
+                    <img
+                      src={slide.src}
+                      alt={slide.alt}
+                      loading="lazy"
+                      className="lightbox-trigger"
+                      onClick={() => handleLightboxOpen(slide.src, slide.caption)}
+                    />
                     <figcaption>{slide.caption}</figcaption>
                   </figure>
                 ))}
@@ -681,11 +861,11 @@ export default function HomeClient({
                 <div className="timeline-media">
                   {gift.image ? (
                     <img
-                      src={gift.image}
+                      src={normalizeImageUrl(gift.image)}
                       alt={gift.title}
                       loading="lazy"
                       className="lightbox-trigger"
-                      onClick={() => handleLightboxOpen(gift.image, gift.title)}
+                      onClick={() => handleLightboxOpen(normalizeImageUrl(gift.image), gift.title)}
                     />
                   ) : null}
                 </div>
@@ -788,11 +968,11 @@ export default function HomeClient({
                 {galleryLists.photos.map((item, index) => (
                   <article key={`photo-${item.name}-${item.caption}-${index}`} className="gallery-card">
                     <img
-                      src={item.src}
+                      src={normalizeImageUrl(item.src)}
                       alt={item.caption}
                       loading="lazy"
                       className="lightbox-trigger"
-                      onClick={() => handleLightboxOpen(item.src, item.caption)}
+                      onClick={() => handleLightboxOpen(normalizeImageUrl(item.src), item.caption)}
                     />
                     <div className="gallery-info">
                       <h4>{item.caption}</h4>
@@ -834,11 +1014,11 @@ export default function HomeClient({
                 {galleryLists.art.map((item, index) => (
                   <article key={`art-${item.name}-${item.caption}-${index}`} className="gallery-card">
                     <img
-                      src={item.src}
+                      src={normalizeImageUrl(item.src)}
                       alt={item.caption}
                       loading="lazy"
                       className="lightbox-trigger"
-                      onClick={() => handleLightboxOpen(item.src, item.caption)}
+                      onClick={() => handleLightboxOpen(normalizeImageUrl(item.src), item.caption)}
                     />
                     <div className="gallery-info">
                       <h4>{item.caption}</h4>
@@ -887,6 +1067,85 @@ export default function HomeClient({
               <p className="form-note">Submissions are reviewed before appearing on the homepage.</p>
               <FormMessage message={galleryMessage} />
             </form>
+          </div>
+        </section>
+
+        <section className="section" id="support">
+          <div className="section-header reveal">
+            <div>
+              <h2>Support the Deer Army</h2>
+              <p>Scan the QR code to send a gift, then share your reference number.</p>
+            </div>
+            <img className="section-icon" src="/assets/deer-mark.svg" alt="Deer icon" />
+          </div>
+          <div className="support-grid">
+            <div className="qr-grid">
+              {paymentQrs.length === 0 ? (
+                <div className="contact-card qr-card reveal">
+                  <h3>Deer Army QR Code</h3>
+                  <p className="empty-state">QR code is not available yet. Please check back soon.</p>
+                </div>
+              ) : (
+                paymentQrs.map((qr) => (
+                  <article
+                    key={qr.id}
+                    className={`contact-card qr-card reveal ${qr.id === activeQrId ? "is-selected" : ""}`}
+                  >
+                    <h3>{qr.title || "Deer Army QR Code"}</h3>
+                    {qr.note ? <p>{qr.note}</p> : null}
+                    <img
+                      src={getQrPreviewUrl(qr.imageUrl)}
+                      alt="Deer Army payment QR code"
+                      className="qr-image"
+                      onError={(event) => applyImageFallback(event, normalizeQrImageUrl(qr.imageUrl))}
+                    />
+                    <button className="secondary-button" type="button" onClick={() => openQrModal(qr)}>
+                      Use this QR
+                    </button>
+                  </article>
+                ))
+              )}
+            </div>
+            <div className="form-card reveal">
+              <h3>Share Your Payment Reference</h3>
+              <form onSubmit={handlePaymentSubmit}>
+                {paymentQrs.length > 1 ? (
+                  <label htmlFor="payment-qr-select">
+                    Select QR
+                    <select
+                      id="payment-qr-select"
+                      name="qrCodeId"
+                      value={activeQrId}
+                      onChange={(event) => setActiveQrId(event.target.value)}
+                      required
+                    >
+                      {paymentQrs.map((qr) => (
+                        <option key={qr.id} value={qr.id}>
+                          {qr.title || "Deer Army QR Code"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <input type="hidden" name="qrCodeId" value={activeQrId} />
+                )}
+                <div className="form-row">
+                  <label htmlFor="payment-sender">
+                    Sender Name
+                    <input id="payment-sender" type="text" name="senderName" required />
+                  </label>
+                  <label htmlFor="payment-reference">
+                    Reference Number
+                    <input id="payment-reference" type="text" name="referenceNumber" required />
+                  </label>
+                </div>
+                <button className="primary-button" type="submit">
+                  Submit Reference
+                </button>
+                <p className="form-note">We use this to match your support with our records.</p>
+                <FormMessage message={paymentMessage} />
+              </form>
+            </div>
           </div>
         </section>
 
@@ -1011,6 +1270,47 @@ export default function HomeClient({
           </div>
         </section>
       </main>
+
+      {qrModal.open && qrModal.qr ? (
+        <div className="modal-overlay" role="presentation" onClick={() => setQrModal({ open: false, qr: null })}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="qr-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3 id="qr-modal-title">{qrModal.qr.title || "Deer Army QR Code"}</h3>
+              <button
+                type="button"
+                className="light-button modal-close"
+                onClick={() => setQrModal({ open: false, qr: null })}
+              >
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              <img
+                src={normalizeQrImageUrl(qrModal.qr.imageUrl)}
+                alt="Deer Army payment QR code"
+                className="dashboard-image"
+                onError={(event) => applyImageFallback(event, driveThumbnailUrl(qrModal.qr.imageUrl))}
+              />
+              {qrModal.qr.note ? <p>{qrModal.qr.note}</p> : null}
+              <div className="action-row">
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => setQrModal({ open: false, qr: null })}
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <footer className="site-footer">
         <div>
