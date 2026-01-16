@@ -66,6 +66,10 @@ function getQrPreviewUrl(url) {
   return driveThumbnailUrl(url) || normalizeImageUrl(url);
 }
 
+function getProductImageUrl(url) {
+  return driveThumbnailUrl(url) || normalizeImageUrl(url);
+}
+
 function applyImageFallback(event, fallback) {
   const target = event.currentTarget;
   if (fallback && target.src !== fallback) {
@@ -269,10 +273,10 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
             {filteredProducts.map((product) => (
               <article key={product.id} className="product-card">
                 <img
-                  src={normalizeImageUrl(product.imageUrl)}
+                  src={getProductImageUrl(product.imageUrl)}
                   alt={product.name}
                   className="product-image"
-                  onError={(event) => applyImageFallback(event, "/assets/deer-mark.svg")}
+                  onError={(event) => applyImageFallback(event, normalizeImageUrl(product.imageUrl))}
                 />
                 <span className="product-category">{product.category}</span>
                 <div>

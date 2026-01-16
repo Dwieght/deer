@@ -6,7 +6,7 @@ import {
   applySearch,
   formatAmount,
   formatDate,
-  normalizeImageUrl,
+  getQrPreviewUrl,
   normalizeSearch,
   paginate,
   parsePage,
@@ -103,11 +103,7 @@ export default async function ProductsPage({ searchParams }) {
                   <td>{product.category}</td>
                   <td>{formatAmount(product.price)}</td>
                   <td>
-                    <img
-                      src={normalizeImageUrl(product.imageUrl)}
-                      alt={product.name}
-                      className="table-image"
-                    />
+                    <img src={getQrPreviewUrl(product.imageUrl)} alt={product.name} className="table-image" />
                   </td>
                   <td className="table-cell-muted">{formatDate(product.updatedAt)}</td>
                   <td>
@@ -119,11 +115,7 @@ export default async function ProductsPage({ searchParams }) {
                       >
                         <div className="modal-stack">
                           <div>
-                            <img
-                              src={normalizeImageUrl(product.imageUrl)}
-                              alt={product.name}
-                              className="dashboard-image"
-                            />
+                            <img src={getQrPreviewUrl(product.imageUrl)} alt={product.name} className="dashboard-image" />
                             <p className="table-cell-muted">Category: {product.category}</p>
                             <p className="table-cell-muted">Price: {formatAmount(product.price)}</p>
                             {product.description ? <p>{product.description}</p> : null}
