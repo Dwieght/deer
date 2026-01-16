@@ -348,6 +348,159 @@ async function main() {
     console.log("About content already exists. Skipping about seed.");
   }
 
+  const productSeeds = [
+    {
+      name: "Deer Army Sticker Pack",
+      category: "Stickers",
+      price: 4.5,
+      imageUrl: "/assets/fanart-1.svg",
+      description: "Printable sticker sheet with deer motifs and cozy phrases.",
+    },
+    {
+      name: "Soft Green Tee",
+      category: "Apparel",
+      price: 22,
+      imageUrl: "/assets/fanart-2.svg",
+      description: "Crew neck shirt featuring the Deer Army crest.",
+    },
+    {
+      name: "Fan Art Print Bundle",
+      category: "Printables",
+      price: 9,
+      imageUrl: "/assets/fanphoto-1.svg",
+      description: "Downloadable art prints inspired by Tommy & Ghazel moments.",
+    },
+    {
+      name: "Deer Army Hoodie",
+      category: "Apparel",
+      price: 38,
+      imageUrl: "/assets/fanphoto-2.svg",
+      description: "Comfy hoodie with embroidered deer heart badge.",
+    },
+    {
+      name: "Car Window Decal",
+      category: "Stickers",
+      price: 6.75,
+      imageUrl: "/assets/fanphoto-3.svg",
+      description: "Weatherproof decal featuring the Deer Army mark.",
+    },
+    {
+      name: "Thank You Postcards",
+      category: "Printables",
+      price: 7,
+      imageUrl: "/assets/moment-02.svg",
+      description: "Set of printable postcards for gift day notes.",
+    },
+    {
+      name: "Deer Army Tote Bag",
+      category: "Accessories",
+      price: 16,
+      imageUrl: "/assets/moment-03.svg",
+      description: "Canvas tote with soft green typography.",
+    },
+    {
+      name: "Phone Wallpaper Pack",
+      category: "Digital",
+      price: 3.5,
+      imageUrl: "/assets/moment-01.svg",
+      description: "Mobile wallpapers for Tommy & Ghazel fans.",
+    },
+    {
+      name: "Desk Art Print",
+      category: "Home",
+      price: 12,
+      imageUrl: "/assets/gift-surprise.svg",
+      description: "Small art print sized for desks and shelves.",
+    },
+    {
+      name: "Deer Army Keychain",
+      category: "Accessories",
+      price: 5.25,
+      imageUrl: "/assets/deer-mark.svg",
+      description: "Acrylic keychain with the Deer Army emblem.",
+    },
+    {
+      name: "February Calendar Pack",
+      category: "Digital",
+      price: 4,
+      imageUrl: "/assets/jan13-letters.svg",
+      description: "Printable monthly calendar with community reminders.",
+    },
+    {
+      name: "Letter Writing Set",
+      category: "Stationery",
+      price: 8,
+      imageUrl: "/assets/jan13-flowers.svg",
+      description: "Printable letter templates and decorative borders.",
+    },
+    {
+      name: "Sticker Sheet Vol. 2",
+      category: "Stickers",
+      price: 4.75,
+      imageUrl: "/assets/jan13-groceries.svg",
+      description: "Extra deer doodles and cozy phrases.",
+    },
+    {
+      name: "Gift Day Photo Bundle",
+      category: "Printables",
+      price: 10,
+      imageUrl: "/assets/moment-02.svg",
+      description: "Curated prints from the January 13 gift day.",
+    },
+    {
+      name: "Deer Army Cap",
+      category: "Apparel",
+      price: 18,
+      imageUrl: "/assets/moment-03.svg",
+      description: "Soft cap with stitched Deer Army mark.",
+    },
+    {
+      name: "Community Badge Set",
+      category: "Accessories",
+      price: 6.5,
+      imageUrl: "/assets/fanphoto-2.svg",
+      description: "Printable badge set for community events.",
+    },
+    {
+      name: "Warm Notes Bundle",
+      category: "Bundle",
+      price: 14,
+      imageUrl: "/assets/fanphoto-3.svg",
+      description: "Printable thank-you notes and envelopes.",
+    },
+    {
+      name: "Soft Green Mug Wrap",
+      category: "Home",
+      price: 7.25,
+      imageUrl: "/assets/fanphoto-1.svg",
+      description: "Printable wrap for custom mugs.",
+    },
+    {
+      name: "Fan Art Pack Vol. 2",
+      category: "Digital",
+      price: 5.5,
+      imageUrl: "/assets/fanart-1.svg",
+      description: "Extra art assets inspired by Deer Army moments.",
+    },
+    {
+      name: "Deer Army Lanyard",
+      category: "Accessories",
+      price: 9.5,
+      imageUrl: "/assets/fanart-2.svg",
+      description: "Printable lanyard design for meetups.",
+    },
+  ];
+
+  const existingProducts = await prisma.product.count();
+  if (existingProducts === 0) {
+    await prisma.product.createMany({
+      data: productSeeds,
+    });
+    console.log("Seeded shop products.");
+  } else {
+    console.log("Products already exist. Skipping product seed.");
+  }
+
   console.log(`Seeded user: ${email}`);
 }
 

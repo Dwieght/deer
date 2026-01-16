@@ -247,6 +247,7 @@ export default function HomeClient({
   const [letterMessage, setLetterMessage] = useState(null);
   const [galleryMessage, setGalleryMessage] = useState(null);
   const [contactMessage, setContactMessage] = useState(null);
+  const [joinMessage, setJoinMessage] = useState(null);
   const [paymentMessage, setPaymentMessage] = useState(null);
   const [activeQrId, setActiveQrId] = useState(paymentQrs[0]?.id || "");
   const [qrModal, setQrModal] = useState({ open: false, qr: null });
@@ -498,6 +499,40 @@ export default function HomeClient({
     }
   };
 
+  const handleJoinSubmit = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const payload = {
+      name: String(formData.get("name") || "").trim(),
+      email: String(formData.get("email") || "").trim(),
+      location: String(formData.get("location") || "").trim(),
+      message: String(formData.get("message") || "").trim(),
+    };
+
+    if (!payload.name || !payload.email) {
+      setJoinMessage({ type: "error", text: "Please add your name and email to join." });
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/submissions/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setJoinMessage({ type: "error", text: data?.error || "Submission failed." });
+        return;
+      }
+      form.reset();
+      setJoinMessage({ type: "success", text: "Thanks for joining! We will review your request soon." });
+    } catch (error) {
+      setJoinMessage({ type: "error", text: "Submission failed. Please try again." });
+    }
+  };
+
   const handlePaymentSubmit = async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -577,7 +612,9 @@ export default function HomeClient({
           <a href="#gifts">Gifts &amp; Surprises</a>
           <a href="#videos">Videos</a>
           <a href="#gallery">Fan Gallery</a>
+          <a href="/shop">Shop</a>
           <a href="#support">Support</a>
+          <a href="#join">Join</a>
           <a href="#announcements">Announcements</a>
           <a href="#about">About Us</a>
           <a href="#contact">Contact</a>
@@ -624,8 +661,14 @@ export default function HomeClient({
         <a href="#gallery" onClick={() => setMobileMenuOpen(false)}>
           Fan Gallery
         </a>
+        <a href="/shop" onClick={() => setMobileMenuOpen(false)}>
+          Shop
+        </a>
         <a href="#support" onClick={() => setMobileMenuOpen(false)}>
           Support
+        </a>
+        <a href="#join" onClick={() => setMobileMenuOpen(false)}>
+          Join
         </a>
         <a href="#announcements" onClick={() => setMobileMenuOpen(false)}>
           Announcements
@@ -1144,6 +1187,51 @@ export default function HomeClient({
                 </button>
                 <p className="form-note">We use this to match your support with our records.</p>
                 <FormMessage message={paymentMessage} />
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <section className="section" id="join">
+          <div className="section-header reveal">
+            <div>
+              <h2>Join the Deer Army</h2>
+              <p>Introduce yourself and become part of our warm, supportive fandom family.</p>
+            </div>
+            <img className="section-icon" src="/assets/deer-mark.svg" alt="Deer icon" />
+          </div>
+          <div className="join-grid">
+            <div className="contact-card reveal">
+              <h3>What to expect</h3>
+              <p>Community updates, project invites, and a safe space to celebrate Tommy &amp; Ghazel.</p>
+              <p>We review every request to keep the Deer Army welcoming and kind.</p>
+            </div>
+            <div className="form-card reveal">
+              <h3>Join Request Form</h3>
+              <form onSubmit={handleJoinSubmit}>
+                <div className="form-row">
+                  <label htmlFor="join-name">
+                    Name
+                    <input id="join-name" type="text" name="name" required />
+                  </label>
+                  <label htmlFor="join-email">
+                    Email
+                    <input id="join-email" type="email" name="email" required />
+                  </label>
+                </div>
+                <label htmlFor="join-location">
+                  Location (optional)
+                  <input id="join-location" type="text" name="location" placeholder="City, Country" />
+                </label>
+                <label htmlFor="join-message">
+                  Message (optional)
+                  <textarea id="join-message" name="message" rows="3"></textarea>
+                </label>
+                <button className="primary-button" type="submit">
+                  Submit Join Request
+                </button>
+                <p className="form-note">Requests are reviewed before we add you to the community list.</p>
+                <FormMessage message={joinMessage} />
               </form>
             </div>
           </div>

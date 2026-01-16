@@ -9,6 +9,23 @@ import { hashPassword, SESSION_COOKIE_NAME, verifySessionToken } from "../../lib
 const GALLERY_CATEGORIES = new Set(["PHOTOS", "VIDEOS", "ART"]);
 const ANNOUNCEMENT_TYPES = new Set(["UPDATE", "BOARD"]);
 const VIDEO_LAYOUTS = new Set(["GRID", "CAROUSEL"]);
+const DASHBOARD_PATHS = [
+  "/dashboard",
+  "/dashboard/letters",
+  "/dashboard/announcements",
+  "/dashboard/gallery",
+  "/dashboard/videos",
+  "/dashboard/payments",
+  "/dashboard/products",
+  "/dashboard/about",
+  "/dashboard/users",
+  "/dashboard/join",
+  "/dashboard/pending",
+];
+
+function revalidateDashboard() {
+  DASHBOARD_PATHS.forEach((path) => revalidatePath(path));
+}
 
 function requireSession() {
   const token = cookies().get(SESSION_COOKIE_NAME)?.value;
@@ -118,6 +135,18 @@ function parseGuidelines(value) {
     .filter(Boolean);
 }
 
+function parseAmount(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) {
+    return null;
+  }
+  const amount = Number(raw);
+  if (!Number.isFinite(amount) || amount < 0) {
+    return NaN;
+  }
+  return amount;
+}
+
 function ok(message) {
   return { ok: true, message };
 }
@@ -147,7 +176,7 @@ export async function createLetter(_prevState, formData) {
       },
     });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Letter saved.");
   } catch (error) {
     return fail("Could not save letter.");
@@ -175,7 +204,7 @@ export async function updateLetter(_prevState, formData) {
       },
     });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Letter updated.");
   } catch (error) {
     return fail("Could not update letter.");
@@ -191,7 +220,7 @@ export async function deleteLetter(_prevState, formData) {
   try {
     await prisma.letterSubmission.delete({ where: { id } });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Letter deleted.");
   } catch (error) {
     return fail("Could not delete letter.");
@@ -217,7 +246,7 @@ export async function createAnnouncement(_prevState, formData) {
       },
     });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Announcement added.");
   } catch (error) {
     return fail("Could not add announcement.");
@@ -245,7 +274,7 @@ export async function updateAnnouncement(_prevState, formData) {
       },
     });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Announcement updated.");
   } catch (error) {
     return fail("Could not update announcement.");
@@ -261,7 +290,7 @@ export async function deleteAnnouncement(_prevState, formData) {
   try {
     await prisma.announcement.delete({ where: { id } });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Announcement deleted.");
   } catch (error) {
     return fail("Could not delete announcement.");
@@ -299,7 +328,7 @@ export async function createGalleryItem(_prevState, formData) {
       },
     });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Gallery item saved.");
   } catch (error) {
     return fail("Could not save gallery item.");
@@ -337,7 +366,7 @@ export async function updateGalleryItem(_prevState, formData) {
       },
     });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Gallery item updated.");
   } catch (error) {
     return fail("Could not update gallery item.");
@@ -353,7 +382,7 @@ export async function deleteGalleryItem(_prevState, formData) {
   try {
     await prisma.gallerySubmission.delete({ where: { id } });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Gallery item deleted.");
   } catch (error) {
     return fail("Could not delete gallery item.");
@@ -385,7 +414,7 @@ export async function upsertAbout(_prevState, formData) {
       },
     });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("About content saved.");
   } catch (error) {
     return fail("Could not save About content.");
@@ -409,10 +438,94 @@ export async function upsertUser(_prevState, formData) {
       update: { passwordHash },
       create: { email, passwordHash },
     });
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Admin user saved.");
   } catch (error) {
     return fail("Could not save admin user.");
+  }
+}
+
+export async function createProduct(_prevState, formData) {
+  requireSession();
+  const name = String(formData.get("name") || "").trim();
+  const category = String(formData.get("category") || "").trim();
+  const priceRaw = formData.get("price");
+  const imageUrlRaw = String(formData.get("imageUrl") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+  const price = parseAmount(priceRaw);
+  const imageUrl = normalizeDriveImageUrl(imageUrlRaw);
+  if (!name || !category || price === null || Number.isNaN(price)) {
+    return fail("Name, category, and price are required.");
+  }
+  if (!imageUrl) {
+    return fail("Product image URL is required.");
+  }
+  try {
+    await prisma.product.create({
+      data: {
+        name,
+        category,
+        price,
+        imageUrl,
+        description: description || null,
+      },
+    });
+    revalidatePath("/shop");
+    revalidateDashboard();
+    return ok("Product added.");
+  } catch (error) {
+    return fail("Could not add product.");
+  }
+}
+
+export async function updateProduct(_prevState, formData) {
+  requireSession();
+  const id = String(formData.get("id") || "");
+  const name = String(formData.get("name") || "").trim();
+  const category = String(formData.get("category") || "").trim();
+  const priceRaw = formData.get("price");
+  const imageUrlRaw = String(formData.get("imageUrl") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+  const price = parseAmount(priceRaw);
+  const imageUrl = normalizeDriveImageUrl(imageUrlRaw);
+  if (!id || !name || !category || price === null || Number.isNaN(price)) {
+    return fail("Name, category, and price are required.");
+  }
+  if (!imageUrl) {
+    return fail("Product image URL is required.");
+  }
+  try {
+    await prisma.product.update({
+      where: { id },
+      data: {
+        name,
+        category,
+        price,
+        imageUrl,
+        description: description || null,
+      },
+    });
+    revalidatePath("/shop");
+    revalidateDashboard();
+    return ok("Product updated.");
+  } catch (error) {
+    return fail("Could not update product.");
+  }
+}
+
+export async function deleteProduct(_prevState, formData) {
+  requireSession();
+  const id = String(formData.get("id") || "");
+  if (!id) {
+    return fail("Missing product id.");
+  }
+  try {
+    await prisma.product.delete({ where: { id } });
+    revalidatePath("/shop");
+    revalidateDashboard();
+    return ok("Product deleted.");
+  } catch (error) {
+    return fail("Could not delete product.");
   }
 }
 
@@ -434,7 +547,7 @@ export async function createPaymentQr(_prevState, formData) {
       },
     });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("QR code added.");
   } catch (error) {
     return fail("Could not add QR code.");
@@ -461,7 +574,7 @@ export async function updatePaymentQr(_prevState, formData) {
       },
     });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("QR code updated.");
   } catch (error) {
     return fail("Could not update QR code.");
@@ -481,7 +594,7 @@ export async function deletePaymentQr(_prevState, formData) {
     });
     await prisma.paymentQrCode.delete({ where: { id } });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("QR code deleted.");
   } catch (error) {
     return fail("Could not delete QR code.");
@@ -503,8 +616,37 @@ export async function updatePaymentSubmission(_prevState, formData) {
         matchedAt: matched ? new Date() : null,
       },
     });
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok(matched ? "Marked as matched." : "Marked as unmatched.");
+  } catch (error) {
+    return fail("Could not update submission.");
+  }
+}
+
+export async function updatePaymentSubmissionDetails(_prevState, formData) {
+  requireSession();
+  const id = String(formData.get("id") || "");
+  const senderName = String(formData.get("senderName") || "").trim();
+  const referenceNumber = String(formData.get("referenceNumber") || "").trim();
+  const amountRaw = formData.get("amount");
+  if (!id || !senderName || !referenceNumber) {
+    return fail("Name, reference number, and submission id are required.");
+  }
+  const amount = parseAmount(amountRaw);
+  if (Number.isNaN(amount)) {
+    return fail("Amount must be a valid number.");
+  }
+  try {
+    await prisma.paymentSubmission.update({
+      where: { id },
+      data: {
+        senderName,
+        referenceNumber,
+        amount,
+      },
+    });
+    revalidateDashboard();
+    return ok("Payment submission updated.");
   } catch (error) {
     return fail("Could not update submission.");
   }
@@ -518,7 +660,7 @@ export async function deletePaymentSubmission(_prevState, formData) {
   }
   try {
     await prisma.paymentSubmission.delete({ where: { id } });
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Submission deleted.");
   } catch (error) {
     return fail("Could not delete submission.");
@@ -542,7 +684,7 @@ export async function createVideoCollection(_prevState, formData) {
       },
     });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Video collection added.");
   } catch (error) {
     return fail("Could not add video collection.");
@@ -568,7 +710,7 @@ export async function updateVideoCollection(_prevState, formData) {
       },
     });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Video collection updated.");
   } catch (error) {
     return fail("Could not update video collection.");
@@ -585,7 +727,7 @@ export async function deleteVideoCollection(_prevState, formData) {
     await prisma.videoItem.deleteMany({ where: { collectionId: id } });
     await prisma.videoCollection.delete({ where: { id } });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Video collection deleted.");
   } catch (error) {
     return fail("Could not delete video collection.");
@@ -610,7 +752,7 @@ export async function createVideoItem(_prevState, formData) {
       },
     });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Video added.");
   } catch (error) {
     return fail("Could not add video.");
@@ -635,7 +777,7 @@ export async function updateVideoItem(_prevState, formData) {
       },
     });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Video updated.");
   } catch (error) {
     return fail("Could not update video.");
@@ -651,7 +793,7 @@ export async function deleteVideoItem(_prevState, formData) {
   try {
     await prisma.videoItem.delete({ where: { id } });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Video deleted.");
   } catch (error) {
     return fail("Could not delete video.");
@@ -670,7 +812,7 @@ export async function approveLetter(_prevState, formData) {
       data: { status: "APPROVED", reviewedAt: new Date() },
     });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Letter approved.");
   } catch (error) {
     return fail("Could not approve letter.");
@@ -685,7 +827,7 @@ export async function declineLetter(_prevState, formData) {
   }
   try {
     await prisma.letterSubmission.delete({ where: { id } });
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Letter declined.");
   } catch (error) {
     return fail("Could not decline letter.");
@@ -704,7 +846,7 @@ export async function approveGallery(_prevState, formData) {
       data: { status: "APPROVED", reviewedAt: new Date() },
     });
     revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Gallery item approved.");
   } catch (error) {
     return fail("Could not approve gallery item.");
@@ -719,7 +861,7 @@ export async function declineGallery(_prevState, formData) {
   }
   try {
     await prisma.gallerySubmission.delete({ where: { id } });
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Gallery item declined.");
   } catch (error) {
     return fail("Could not decline gallery item.");
@@ -737,7 +879,7 @@ export async function approveContact(_prevState, formData) {
       where: { id },
       data: { status: "APPROVED", reviewedAt: new Date() },
     });
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Message approved.");
   } catch (error) {
     return fail("Could not approve message.");
@@ -752,10 +894,43 @@ export async function declineContact(_prevState, formData) {
   }
   try {
     await prisma.contactSubmission.delete({ where: { id } });
-    revalidatePath("/dashboard");
+    revalidateDashboard();
     return ok("Message declined.");
   } catch (error) {
     return fail("Could not decline message.");
+  }
+}
+
+export async function approveJoin(_prevState, formData) {
+  requireSession();
+  const id = String(formData.get("id") || "");
+  if (!id) {
+    return fail("Missing join request id.");
+  }
+  try {
+    await prisma.joinSubmission.update({
+      where: { id },
+      data: { status: "APPROVED", reviewedAt: new Date() },
+    });
+    revalidateDashboard();
+    return ok("Join request approved.");
+  } catch (error) {
+    return fail("Could not approve join request.");
+  }
+}
+
+export async function declineJoin(_prevState, formData) {
+  requireSession();
+  const id = String(formData.get("id") || "");
+  if (!id) {
+    return fail("Missing join request id.");
+  }
+  try {
+    await prisma.joinSubmission.delete({ where: { id } });
+    revalidateDashboard();
+    return ok("Join request declined.");
+  } catch (error) {
+    return fail("Could not decline join request.");
   }
 }
 

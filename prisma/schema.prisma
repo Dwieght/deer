@@ -73,6 +73,18 @@ model ContactSubmission {
   reviewedAt DateTime?
 }
 
+model JoinSubmission {
+  id         String           @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  email      String
+  location   String?
+  message    String?
+  status     SubmissionStatus @default(PENDING)
+  createdAt  DateTime         @default(now())
+  reviewedAt DateTime?
+  updatedAt  DateTime         @updatedAt
+}
+
 model Announcement {
   id        String           @id @default(auto()) @map("_id") @db.ObjectId
   title     String
@@ -113,6 +125,17 @@ model VideoItem {
   updatedAt    DateTime       @updatedAt
 }
 
+model Product {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  category    String
+  price       Float
+  imageUrl    String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model PaymentQrCode {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   title     String?
@@ -127,6 +150,7 @@ model PaymentSubmission {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
   senderName      String
   referenceNumber String
+  amount          Float?
   qrCodeId        String?  @db.ObjectId
   qrCode          PaymentQrCode? @relation(fields: [qrCodeId], references: [id])
   matched         Boolean  @default(false)
