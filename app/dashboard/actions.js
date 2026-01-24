@@ -9,6 +9,7 @@ import { hashPassword, SESSION_COOKIE_NAME, verifySessionToken } from "../../lib
 const GALLERY_CATEGORIES = new Set(["PHOTOS", "VIDEOS", "ART"]);
 const ANNOUNCEMENT_TYPES = new Set(["UPDATE", "BOARD"]);
 const VIDEO_LAYOUTS = new Set(["GRID", "CAROUSEL"]);
+const ORDER_STATUSES = new Set(["PENDING", "PAID", "SHIPPED", "DELIVERED", "CANCELLED"]);
 const DASHBOARD_PATHS = [
   "/dashboard",
   "/dashboard/letters",
@@ -17,6 +18,7 @@ const DASHBOARD_PATHS = [
   "/dashboard/videos",
   "/dashboard/payments",
   "/dashboard/products",
+  "/dashboard/orders",
   "/dashboard/about",
   "/dashboard/users",
   "/dashboard/join",
@@ -145,6 +147,18 @@ function parseAmount(value) {
     return NaN;
   }
   return amount;
+}
+
+function parseQuantity(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) {
+    return null;
+  }
+  const quantity = Number.parseInt(raw, 10);
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    return NaN;
+  }
+  return quantity;
 }
 
 function ok(message) {
@@ -526,6 +540,61 @@ export async function deleteProduct(_prevState, formData) {
     return ok("Product deleted.");
   } catch (error) {
     return fail("Could not delete product.");
+  }
+}
+
+export async function updateOrder(_prevState, formData) {
+  requireSession();
+  const id = String(formData.get("id") || "");
+  const customerName = String(formData.get("customerName") || "").trim();
+  const phone = String(formData.get("phone") || "").trim();
+  const status = String(formData.get("status") || "").trim().toUpperCase();
+  const quantityRaw = formData.get("quantity");
+  if (!id || !customerName || !phone || !ORDER_STATUSES.has(status)) {
+    return fail("Customer name, phone, and status are required.");
+  }
+  const quantity = parseQuantity(quantityRaw);
+  if (Number.isNaN(quantity) || quantity === null) {
+    return fail("Quantity must be a valid number.");
+  }
+  try {
+    const existing = await prisma.order.findUnique({
+      where: { id },
+      include: { product: true },
+    });
+    if (!existing || !existing.product) {
+      return fail("Order not found.");
+    }
+    const total = existing.product.price * quantity;
+    await prisma.order.update({
+      where: { id },
+      data: {
+        customerName,
+        phone,
+        status,
+        quantity,
+        total,
+      },
+    });
+    revalidateDashboard();
+    return ok("Order updated.");
+  } catch (error) {
+    return fail("Could not update order.");
+  }
+}
+
+export async function deleteOrder(_prevState, formData) {
+  requireSession();
+  const id = String(formData.get("id") || "");
+  if (!id) {
+    return fail("Missing order id.");
+  }
+  try {
+    await prisma.order.delete({ where: { id } });
+    revalidateDashboard();
+    return ok("Order deleted.");
+  } catch (error) {
+    return fail("Could not delete order.");
   }
 }
 

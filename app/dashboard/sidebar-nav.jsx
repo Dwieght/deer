@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/videos", label: "Video Library" },
   { href: "/dashboard/payments", label: "Payment QR" },
   { href: "/dashboard/products", label: "Products" },
+  { href: "/dashboard/orders", label: "Orders" },
   { href: "/dashboard/join", label: "Join Requests" },
   { href: "/dashboard/about", label: "About Deer Army" },
   { href: "/dashboard/users", label: "Admin Users" },

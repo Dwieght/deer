@@ -29,6 +29,14 @@ enum VideoLayout {
   CAROUSEL
 }
 
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
 model User {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   email        String   @unique
@@ -134,6 +142,20 @@ model Product {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  orders      Order[]
+}
+
+model Order {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  customerName String
+  phone        String
+  quantity     Int
+  total        Float
+  status       OrderStatus @default(PENDING)
+  productId    String      @db.ObjectId
+  product      Product     @relation(fields: [productId], references: [id])
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 }
 
 model PaymentQrCode {
