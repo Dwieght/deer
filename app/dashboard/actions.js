@@ -465,9 +465,23 @@ export async function createProduct(_prevState, formData) {
   const category = String(formData.get("category") || "").trim();
   const priceRaw = formData.get("price");
   const imageUrlRaw = String(formData.get("imageUrl") || "").trim();
+  const imageUrlsRaw = String(formData.get("imageUrls") || "").trim();
+  const sizesRaw = String(formData.get("sizes") || "").trim();
   const description = String(formData.get("description") || "").trim();
   const price = parseAmount(priceRaw);
   const imageUrl = normalizeDriveImageUrl(imageUrlRaw);
+  const imageUrls = imageUrlsRaw
+    ? imageUrlsRaw
+        .split("\n")
+        .map((line) => normalizeDriveImageUrl(line.trim()))
+        .filter(Boolean)
+    : [];
+  const sizes = sizesRaw
+    ? sizesRaw
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
   if (!name || !category || price === null || Number.isNaN(price)) {
     return fail("Name, category, and price are required.");
   }
@@ -481,6 +495,8 @@ export async function createProduct(_prevState, formData) {
         category,
         price,
         imageUrl,
+        imageUrls,
+        sizes,
         description: description || null,
       },
     });
@@ -499,9 +515,23 @@ export async function updateProduct(_prevState, formData) {
   const category = String(formData.get("category") || "").trim();
   const priceRaw = formData.get("price");
   const imageUrlRaw = String(formData.get("imageUrl") || "").trim();
+  const imageUrlsRaw = String(formData.get("imageUrls") || "").trim();
+  const sizesRaw = String(formData.get("sizes") || "").trim();
   const description = String(formData.get("description") || "").trim();
   const price = parseAmount(priceRaw);
   const imageUrl = normalizeDriveImageUrl(imageUrlRaw);
+  const imageUrls = imageUrlsRaw
+    ? imageUrlsRaw
+        .split("\n")
+        .map((line) => normalizeDriveImageUrl(line.trim()))
+        .filter(Boolean)
+    : [];
+  const sizes = sizesRaw
+    ? sizesRaw
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
   if (!id || !name || !category || price === null || Number.isNaN(price)) {
     return fail("Name, category, and price are required.");
   }
@@ -516,6 +546,8 @@ export async function updateProduct(_prevState, formData) {
         category,
         price,
         imageUrl,
+        imageUrls,
+        sizes,
         description: description || null,
       },
     });
@@ -548,10 +580,26 @@ export async function updateOrder(_prevState, formData) {
   const id = String(formData.get("id") || "");
   const customerName = String(formData.get("customerName") || "").trim();
   const phone = String(formData.get("phone") || "").trim();
+  const region = String(formData.get("region") || "").trim();
+  const province = String(formData.get("province") || "").trim();
+  const city = String(formData.get("city") || "").trim();
+  const barangay = String(formData.get("barangay") || "").trim();
+  const postalCode = String(formData.get("postalCode") || "").trim();
+  const streetName = String(formData.get("streetName") || "").trim();
+  const building = String(formData.get("building") || "").trim();
+  const houseNo = String(formData.get("houseNo") || "").trim();
+  const addressLabel = String(formData.get("addressLabel") || "").trim();
+  const size = String(formData.get("size") || "").trim();
   const status = String(formData.get("status") || "").trim().toUpperCase();
   const quantityRaw = formData.get("quantity");
   if (!id || !customerName || !phone || !ORDER_STATUSES.has(status)) {
     return fail("Customer name, phone, and status are required.");
+  }
+  if (!region || !province || !city || !barangay) {
+    return fail("Region, province, city, and barangay are required.");
+  }
+  if (!postalCode || !streetName || !houseNo || !addressLabel) {
+    return fail("Postal code, street, house number, and label are required.");
   }
   const quantity = parseQuantity(quantityRaw);
   if (Number.isNaN(quantity) || quantity === null) {
@@ -571,6 +619,16 @@ export async function updateOrder(_prevState, formData) {
       data: {
         customerName,
         phone,
+        region,
+        province,
+        city,
+        barangay,
+        postalCode,
+        streetName,
+        building: building || null,
+        houseNo,
+        addressLabel,
+        size: size || null,
         status,
         quantity,
         total,

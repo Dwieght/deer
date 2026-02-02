@@ -139,6 +139,8 @@ model Product {
   category    String
   price       Float
   imageUrl    String
+  imageUrls   String[]
+  sizes       String[]
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -149,6 +151,16 @@ model Order {
   id           String      @id @default(auto()) @map("_id") @db.ObjectId
   customerName String
   phone        String
+  region       String?
+  province     String?
+  city         String?
+  barangay     String?
+  postalCode   String?
+  streetName   String?
+  building     String?
+  houseNo      String?
+  addressLabel String?
+  size         String?
   quantity     Int
   total        Float
   status       OrderStatus @default(PENDING)

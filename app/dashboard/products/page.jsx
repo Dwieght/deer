@@ -59,6 +59,14 @@ export default async function ProductsPage({ searchParams }) {
               Image URL
               <input id="product-image" type="text" name="imageUrl" placeholder="https://" required />
             </label>
+            <label htmlFor="product-images">
+              Extra Image URLs (one per line)
+              <textarea id="product-images" name="imageUrls" rows="4" placeholder="https://"></textarea>
+            </label>
+            <label htmlFor="product-sizes">
+              Sizes (comma separated)
+              <input id="product-sizes" type="text" name="sizes" placeholder="XS, S, M, L, XL" />
+            </label>
             <label htmlFor="product-description">
               Description
               <textarea id="product-description" name="description" rows="3"></textarea>
@@ -153,6 +161,18 @@ export default async function ProductsPage({ searchParams }) {
                           <label>
                             Image URL
                             <input type="text" name="imageUrl" defaultValue={product.imageUrl} required />
+                          </label>
+                          <label>
+                            Extra Image URLs (one per line)
+                            <textarea
+                              name="imageUrls"
+                              rows="4"
+                              defaultValue={(product.imageUrls || []).join("\n")}
+                            ></textarea>
+                          </label>
+                          <label>
+                            Sizes (comma separated)
+                            <input type="text" name="sizes" defaultValue={(product.sizes || []).join(", ")} />
                           </label>
                           <label>
                             Description

@@ -16,6 +16,8 @@ export default async function ShopPage() {
     category: product.category,
     price: product.price,
     imageUrl: product.imageUrl,
+    imageUrls: product.imageUrls || [],
+    sizes: product.sizes || [],
     description: product.description,
   }));
 

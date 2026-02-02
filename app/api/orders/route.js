@@ -25,11 +25,27 @@ export async function POST(request) {
 
   const customerName = String(body?.customerName || "").trim();
   const phone = String(body?.phone || "").trim();
+  const region = String(body?.region || "").trim();
+  const province = String(body?.province || "").trim();
+  const city = String(body?.city || "").trim();
+  const barangay = String(body?.barangay || "").trim();
+  const postalCode = String(body?.postalCode || "").trim();
+  const streetName = String(body?.streetName || "").trim();
+  const building = String(body?.building || "").trim();
+  const houseNo = String(body?.houseNo || "").trim();
+  const addressLabel = String(body?.addressLabel || "").trim();
+  const size = String(body?.size || "").trim();
   const productId = String(body?.productId || "").trim();
   const quantity = parseQuantity(body?.quantity);
 
   if (!customerName || !phone || !productId) {
     return NextResponse.json({ error: "Name, phone, and product are required" }, { status: 400 });
+  }
+  if (!region || !province || !city || !barangay) {
+    return NextResponse.json({ error: "Complete region, province, city, and barangay." }, { status: 400 });
+  }
+  if (!postalCode || !streetName || !houseNo || !addressLabel) {
+    return NextResponse.json({ error: "Complete address fields and label." }, { status: 400 });
   }
   if (quantity === null || Number.isNaN(quantity)) {
     return NextResponse.json({ error: "Quantity must be at least 1" }, { status: 400 });
@@ -45,6 +61,16 @@ export async function POST(request) {
       data: {
         customerName,
         phone,
+        region,
+        province,
+        city,
+        barangay,
+        postalCode,
+        streetName,
+        building: building || null,
+        houseNo,
+        addressLabel,
+        size: size || null,
         productId,
         quantity,
         total,

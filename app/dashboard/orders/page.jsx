@@ -91,7 +91,16 @@ export default async function OrdersPage({ searchParams }) {
                         <div className="modal-stack">
                           <div>
                             <p className="table-cell-muted">Phone: {order.phone}</p>
+                            <p className="table-cell-muted">
+                              Address: {order.houseNo} {order.streetName}
+                              {order.building ? `, ${order.building}` : ""}, {order.barangay}, {order.city},{" "}
+                              {order.province}, {order.region} {order.postalCode}
+                            </p>
+                            <p className="table-cell-muted">Label: {order.addressLabel}</p>
                             <p className="table-cell-muted">Status: {order.status}</p>
+                            {order.size ? (
+                              <p className="table-cell-muted">Size: {order.size}</p>
+                            ) : null}
                             <p className="table-cell-muted">Quantity: {order.quantity}</p>
                             <p className="table-cell-muted">Total: {formatAmount(order.total)}</p>
                             {order.product ? (
@@ -117,6 +126,49 @@ export default async function OrdersPage({ searchParams }) {
                               <label>
                                 Phone
                                 <input type="text" name="phone" defaultValue={order.phone} required />
+                              </label>
+                              <label>
+                                Region
+                                <input type="text" name="region" defaultValue={order.region} required />
+                              </label>
+                              <label>
+                                Province
+                                <input type="text" name="province" defaultValue={order.province} required />
+                              </label>
+                              <label>
+                                City
+                                <input type="text" name="city" defaultValue={order.city} required />
+                              </label>
+                              <label>
+                                Barangay
+                                <input type="text" name="barangay" defaultValue={order.barangay} required />
+                              </label>
+                              <label>
+                                Postal Code
+                                <input type="text" name="postalCode" defaultValue={order.postalCode} required />
+                              </label>
+                              <label>
+                                Street Name
+                                <input type="text" name="streetName" defaultValue={order.streetName} required />
+                              </label>
+                              <label>
+                                Building
+                                <input type="text" name="building" defaultValue={order.building || ""} />
+                              </label>
+                              <label>
+                                House No.
+                                <input type="text" name="houseNo" defaultValue={order.houseNo} required />
+                              </label>
+                              <label>
+                                Address Label
+                                <select name="addressLabel" defaultValue={order.addressLabel} required>
+                                  <option value="home">Home</option>
+                                  <option value="work">Work</option>
+                                </select>
+                              </label>
+                              <label>
+                                Size
+                                <input type="text" name="size" defaultValue={order.size || ""} />
                               </label>
                               <label>
                                 Status

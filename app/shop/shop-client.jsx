@@ -57,7 +57,9 @@ function normalizeImageUrl(url) {
     if (value.includes("export=")) {
       return value.replace("export=download", "export=view");
     }
-    return value.includes("?") ? `${value}&export=view` : `${value}?export=view`;
+    return value.includes("?")
+      ? `${value}&export=view`
+      : `${value}?export=view`;
   }
   return value;
 }
@@ -86,7 +88,22 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [orderModal, setOrderModal] = useState({ open: false, product: null });
-  const [orderForm, setOrderForm] = useState({ customerName: "", phone: "", quantity: 1 });
+  const [orderForm, setOrderForm] = useState({
+    customerName: "",
+    phone: "",
+    quantity: 1,
+    region: "",
+    regionOther: "",
+    province: "",
+    city: "",
+    barangay: "",
+    postalCode: "",
+    streetName: "",
+    building: "",
+    houseNo: "",
+    addressLabel: "home",
+    size: "",
+  });
   const [orderMessage, setOrderMessage] = useState(null);
 
   const categories = useMemo(() => {
@@ -114,11 +131,26 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
     });
   }, [products, searchQuery, activeCategory]);
 
+  const REGION_OPTIONS = [
+    "Metro Manila",
+    "North Luzon",
+    "South Luzon",
+    "Visayas",
+    "Mindanao",
+  ];
+
   const activeQr = paymentQrs[0] || null;
-  const activeQrImage = activeQr?.imageUrl ? getQrPreviewUrl(activeQr.imageUrl) : "";
+  const activeQrImage = activeQr?.imageUrl
+    ? getQrPreviewUrl(activeQr.imageUrl)
+    : "";
   const headerQrImage = activeQrImage || "/assets/deer-mark.svg";
-  const headerQrFallback = activeQr?.imageUrl ? normalizeImageUrl(activeQr.imageUrl) : "";
-  const orderQuantity = Number.isFinite(orderForm.quantity) && orderForm.quantity > 0 ? orderForm.quantity : 1;
+  const headerQrFallback = activeQr?.imageUrl
+    ? normalizeImageUrl(activeQr.imageUrl)
+    : "";
+  const orderQuantity =
+    Number.isFinite(orderForm.quantity) && orderForm.quantity > 0
+      ? orderForm.quantity
+      : 1;
 
   useEffect(() => {
     if (!orderModal.open) {
@@ -130,6 +162,23 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
       document.body.style.overflow = previous;
     };
   }, [orderModal.open]);
+
+  useEffect(() => {
+    if (!orderModal.open || !orderModal.product?.images?.length) {
+      return undefined;
+    }
+    orderModal.product.images.forEach((imageUrl) => {
+      const preview = getProductImageUrl(imageUrl);
+      const full = normalizeImageUrl(imageUrl);
+      const previewImg = new Image();
+      previewImg.src = preview;
+      if (full && full !== preview) {
+        const fullImg = new Image();
+        fullImg.src = full;
+      }
+    });
+    return undefined;
+  }, [orderModal.open, orderModal.product]);
 
   useEffect(() => {
     if (!orderModal.open) {
@@ -145,9 +194,25 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
   }, [orderModal.open]);
 
   const openOrderModal = (product) => {
-    setOrderForm({ customerName: "", phone: "", quantity: 1 });
+    setOrderForm({
+      customerName: "",
+      phone: "",
+      quantity: 1,
+      region: "",
+      regionOther: "",
+      province: "",
+      city: "",
+      barangay: "",
+      postalCode: "",
+      streetName: "",
+      building: "",
+      houseNo: "",
+      addressLabel: "home",
+      size: "",
+    });
     setOrderMessage(null);
-    setOrderModal({ open: true, product });
+    const images = [product.imageUrl, ...(product.imageUrls || [])].filter(Boolean);
+    setOrderModal({ open: true, product: { ...product, images }, imageIndex: 0 });
   };
 
   const handleOrderInput = (field) => (event) => {
@@ -155,6 +220,14 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
     setOrderForm((prev) => ({
       ...prev,
       [field]: field === "quantity" ? Number.parseInt(value || "1", 10) : value,
+    }));
+  };
+
+  const handleRegionChange = (event) => {
+    const region = event.target.value;
+    setOrderForm((prev) => ({
+      ...prev,
+      region,
     }));
   };
 
@@ -169,9 +242,25 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
       phone: String(orderForm.phone || "").trim(),
       productId: product.id,
       quantity: orderForm.quantity,
+      region:
+        orderForm.region === "Other"
+          ? String(orderForm.regionOther || "").trim()
+          : String(orderForm.region || "").trim(),
+      province: String(orderForm.province || "").trim(),
+      city: String(orderForm.city || "").trim(),
+      barangay: String(orderForm.barangay || "").trim(),
+      postalCode: String(orderForm.postalCode || "").trim(),
+      streetName: String(orderForm.streetName || "").trim(),
+      building: String(orderForm.building || "").trim(),
+      houseNo: String(orderForm.houseNo || "").trim(),
+      addressLabel: String(orderForm.addressLabel || "").trim(),
+      size: String(orderForm.size || "").trim(),
     };
     if (!payload.customerName || !payload.phone) {
-      setOrderMessage({ type: "error", text: "Please add your name and phone number." });
+      setOrderMessage({
+        type: "error",
+        text: "Please add your name and phone number.",
+      });
       return;
     }
     if (!Number.isFinite(payload.quantity) || payload.quantity <= 0) {
@@ -186,13 +275,38 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
       });
       const data = await response.json();
       if (!response.ok) {
-        setOrderMessage({ type: "error", text: data?.error || "Order failed." });
+        setOrderMessage({
+          type: "error",
+          text: data?.error || "Order failed.",
+        });
         return;
       }
-      setOrderMessage({ type: "success", text: "Order placed! We will reach out soon." });
-      setOrderForm({ customerName: "", phone: "", quantity: 1 });
+      setOrderMessage({
+        type: "success",
+        text: "Order placed! We will reach out soon.",
+      });
+      window.alert("Order submitted! We will contact you to confirm the details.");
+      setOrderForm({
+        customerName: "",
+        phone: "",
+        quantity: 1,
+        region: "",
+        regionOther: "",
+        province: "",
+        city: "",
+        barangay: "",
+        postalCode: "",
+        streetName: "",
+        building: "",
+        houseNo: "",
+        addressLabel: "home",
+        size: "",
+      });
     } catch (error) {
-      setOrderMessage({ type: "error", text: "Order failed. Please try again." });
+      setOrderMessage({
+        type: "error",
+        text: "Order failed. Please try again.",
+      });
     }
   };
 
@@ -232,7 +346,11 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
           <a href="/dashboard">Dashboard</a>
         </nav>
         <div className="nav-actions">
-          <a className="header-qr" href="/#support" aria-label="Support QR code">
+          <a
+            className="header-qr"
+            href="/#support"
+            aria-label="Support QR code"
+          >
             <img
               src={headerQrImage}
               alt="Support QR"
@@ -252,7 +370,10 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
         </div>
       </header>
 
-      <aside className={`mobile-menu ${mobileMenuOpen ? "is-open" : ""}`} aria-label="Mobile">
+      <aside
+        className={`mobile-menu ${mobileMenuOpen ? "is-open" : ""}`}
+        aria-label="Mobile"
+      >
         <a href="/#home" onClick={() => setMobileMenuOpen(false)}>
           Home
         </a>
@@ -311,8 +432,8 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
           <p className="eyebrow">Deer Army Merch</p>
           <h1>Shop with heart</h1>
           <p className="lead">
-            Printable stickers, cozy tees, and design packs inspired by Tommy &amp; Ghazel. Every purchase
-            supports community projects.
+            Printable stickers, cozy tees, and design packs inspired by Tommy
+            &amp; Ghazel. Every purchase supports community projects.
           </p>
           <div className="shop-controls">
             <div className="shop-search">
@@ -330,7 +451,11 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
           </div>
         </section>
 
-        <div className="shop-category-row" role="tablist" aria-label="Product categories">
+        <div
+          className="shop-category-row"
+          role="tablist"
+          aria-label="Product categories"
+        >
           {categories.map((category) => (
             <button
               key={category}
@@ -368,7 +493,12 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                   src={getProductImageUrl(product.imageUrl)}
                   alt={product.name}
                   className="product-image"
-                  onError={(event) => applyImageFallback(event, normalizeImageUrl(product.imageUrl))}
+                  onError={(event) =>
+                    applyImageFallback(
+                      event,
+                      normalizeImageUrl(product.imageUrl),
+                    )
+                  }
                 />
                 <span className="product-category">{product.category}</span>
                 <div>
@@ -407,17 +537,73 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
             <div className="modal-body">
               <div className="modal-stack">
                 <div>
-                  <img
-                    src={getProductImageUrl(orderModal.product.imageUrl)}
-                    alt={orderModal.product.name}
-                    className="dashboard-image"
-                    onError={(event) => applyImageFallback(event, normalizeImageUrl(orderModal.product.imageUrl))}
-                  />
-                  <p className="table-cell-muted">Unit price: {formatAmount(orderModal.product.price)}</p>
+                  <div className="product-carousel">
+                    <button
+                      className="carousel-arrow"
+                      type="button"
+                      aria-label="Previous photo"
+                      onClick={() =>
+                        setOrderModal((prev) => {
+                          const images = prev.product?.images || [];
+                          if (!images.length) {
+                            return prev;
+                          }
+                          const index = (prev.imageIndex || 0) - 1;
+                          return { ...prev, imageIndex: (index + images.length) % images.length };
+                        })
+                      }
+                    >
+                      &larr;
+                    </button>
+                    <div className="product-carousel-frame">
+                      <img
+                        src={getProductImageUrl(
+                          (orderModal.product.images || [orderModal.product.imageUrl])[
+                            orderModal.imageIndex || 0
+                          ]
+                        )}
+                        alt={orderModal.product.name}
+                        className="dashboard-image"
+                        onError={(event) =>
+                          applyImageFallback(
+                            event,
+                            normalizeImageUrl(
+                              (orderModal.product.images || [orderModal.product.imageUrl])[
+                                orderModal.imageIndex || 0
+                              ]
+                            )
+                          )
+                        }
+                      />
+                    </div>
+                    <button
+                      className="carousel-arrow"
+                      type="button"
+                      aria-label="Next photo"
+                      onClick={() =>
+                        setOrderModal((prev) => {
+                          const images = prev.product?.images || [];
+                          if (!images.length) {
+                            return prev;
+                          }
+                          const index = (prev.imageIndex || 0) + 1;
+                          return { ...prev, imageIndex: index % images.length };
+                        })
+                      }
+                    >
+                      &rarr;
+                    </button>
+                  </div>
+                  <p className="table-cell-muted">
+                    Unit price: {formatAmount(orderModal.product.price)}
+                  </p>
                 </div>
                 <form className="admin-form" onSubmit={handleOrderSubmit}>
+                  <div className="form-note">
+                    Note: At the moment we can only accept orders within the Philippines.
+                  </div>
                   <label>
-                    Customer Name
+                    Full Name
                     <input
                       type="text"
                       name="customerName"
@@ -428,10 +614,32 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                   </label>
                   <label>
                     Product
-                    <input type="text" value={orderModal.product.name} disabled />
+                    <input
+                      type="text"
+                      value={orderModal.product.name}
+                      disabled
+                    />
                   </label>
+                  {orderModal.product.sizes && orderModal.product.sizes.length ? (
+                    <label>
+                      Size
+                      <select
+                        name="size"
+                        value={orderForm.size}
+                        onChange={handleOrderInput("size")}
+                        required
+                      >
+                        <option value="">Select size</option>
+                        {orderModal.product.sizes.map((size) => (
+                          <option key={size} value={size}>
+                            {size}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
                   <label>
-                    Customer Number
+                    Phone Number
                     <input
                       type="text"
                       name="phone"
@@ -439,6 +647,116 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                       onChange={handleOrderInput("phone")}
                       required
                     />
+                  </label>
+                  <label>
+                    Region
+                    <select
+                      value={orderForm.region}
+                      onChange={handleRegionChange}
+                      required
+                    >
+                      <option value="">Select region</option>
+                      {REGION_OPTIONS.map((region) => (
+                        <option key={region} value={region}>
+                          {region}
+                        </option>
+                      ))}
+                      <option value="Other">Other (outside PH)</option>
+                    </select>
+                  </label>
+                  {orderForm.region === "Other" ? (
+                    <label>
+                      Region (Other)
+                      <input
+                        type="text"
+                        name="regionOther"
+                        value={orderForm.regionOther}
+                        onChange={handleOrderInput("regionOther")}
+                        placeholder="Country / Region"
+                        required
+                      />
+                    </label>
+                  ) : null}
+                  <label>
+                    Province
+                    <input
+                      type="text"
+                      name="province"
+                      value={orderForm.province}
+                      onChange={handleOrderInput("province")}
+                      required
+                    />
+                  </label>
+                  <label>
+                    City
+                    <input
+                      type="text"
+                      name="city"
+                      value={orderForm.city}
+                      onChange={handleOrderInput("city")}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Barangay
+                    <input
+                      type="text"
+                      name="barangay"
+                      value={orderForm.barangay}
+                      onChange={handleOrderInput("barangay")}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Postal Code
+                    <input
+                      type="text"
+                      name="postalCode"
+                      value={orderForm.postalCode}
+                      onChange={handleOrderInput("postalCode")}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Street Name
+                    <input
+                      type="text"
+                      name="streetName"
+                      value={orderForm.streetName}
+                      onChange={handleOrderInput("streetName")}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Building (optional)
+                    <input
+                      type="text"
+                      name="building"
+                      value={orderForm.building}
+                      onChange={handleOrderInput("building")}
+                    />
+                  </label>
+                  <label>
+                    House No.
+                    <input
+                      type="text"
+                      name="houseNo"
+                      value={orderForm.houseNo}
+                      onChange={handleOrderInput("houseNo")}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Address Label
+                    <select
+                      name="addressLabel"
+                      value={orderForm.addressLabel}
+                      onChange={handleOrderInput("addressLabel")}
+                      required
+                    >
+                      <option value="home">Home</option>
+                      <option value="work">Work</option>
+                    </select>
                   </label>
                   <label>
                     Quantity
@@ -462,7 +780,13 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                     Place Order
                   </button>
                   {orderMessage ? (
-                    <p className="form-message" style={{ color: orderMessage.type === "error" ? "#a33" : "#2a3d31" }}>
+                    <p
+                      className="form-message"
+                      style={{
+                        color:
+                          orderMessage.type === "error" ? "#a33" : "#2a3d31",
+                      }}
+                    >
                       {orderMessage.text}
                     </p>
                   ) : null}
