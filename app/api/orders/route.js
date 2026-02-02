@@ -35,6 +35,7 @@ export async function POST(request) {
   const houseNo = String(body?.houseNo || "").trim();
   const addressLabel = String(body?.addressLabel || "").trim();
   const size = String(body?.size || "").trim();
+  const gcashReference = String(body?.gcashReference || "").trim();
   const productId = String(body?.productId || "").trim();
   const quantity = parseQuantity(body?.quantity);
 
@@ -46,6 +47,9 @@ export async function POST(request) {
   }
   if (!postalCode || !streetName || !houseNo || !addressLabel) {
     return NextResponse.json({ error: "Complete address fields and label." }, { status: 400 });
+  }
+  if (!gcashReference) {
+    return NextResponse.json({ error: "GCash reference number is required." }, { status: 400 });
   }
   if (quantity === null || Number.isNaN(quantity)) {
     return NextResponse.json({ error: "Quantity must be at least 1" }, { status: 400 });
@@ -71,6 +75,7 @@ export async function POST(request) {
         houseNo,
         addressLabel,
         size: size || null,
+        gcashReference,
         productId,
         quantity,
         total,

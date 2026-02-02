@@ -990,6 +990,12 @@ textarea {
   color: var(--white);
 }
 
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .secondary-button {
   background: var(--moss);
   color: var(--white);

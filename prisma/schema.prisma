@@ -161,6 +161,7 @@ model Order {
   houseNo      String?
   addressLabel String?
   size         String?
+  gcashReference String?
   quantity     Int
   total        Float
   status       OrderStatus @default(PENDING)

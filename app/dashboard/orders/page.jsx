@@ -65,6 +65,7 @@ export default async function OrdersPage({ searchParams }) {
                 <th>Phone</th>
                 <th>Product</th>
                 <th>Total</th>
+                <th>GCash Ref</th>
                 <th>Status</th>
                 <th>Created</th>
                 <th>Actions</th>
@@ -77,6 +78,7 @@ export default async function OrdersPage({ searchParams }) {
                   <td className="table-cell-truncate">{order.phone}</td>
                   <td className="table-cell-truncate">{order.product?.name || "—"}</td>
                   <td>{formatAmount(order.total)}</td>
+                  <td className="table-cell-truncate">{order.gcashReference || "—"}</td>
                   <td>
                     <span className="badge">{order.status}</span>
                   </td>
@@ -100,6 +102,9 @@ export default async function OrdersPage({ searchParams }) {
                             <p className="table-cell-muted">Status: {order.status}</p>
                             {order.size ? (
                               <p className="table-cell-muted">Size: {order.size}</p>
+                            ) : null}
+                            {order.gcashReference ? (
+                              <p className="table-cell-muted">GCash Ref: {order.gcashReference}</p>
                             ) : null}
                             <p className="table-cell-muted">Quantity: {order.quantity}</p>
                             <p className="table-cell-muted">Total: {formatAmount(order.total)}</p>
@@ -169,6 +174,10 @@ export default async function OrdersPage({ searchParams }) {
                               <label>
                                 Size
                                 <input type="text" name="size" defaultValue={order.size || ""} />
+                              </label>
+                              <label>
+                                GCash Reference
+                                <input type="text" name="gcashReference" defaultValue={order.gcashReference || ""} />
                               </label>
                               <label>
                                 Status

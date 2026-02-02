@@ -103,8 +103,10 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
     houseNo: "",
     addressLabel: "home",
     size: "",
+    gcashReference: "",
   });
   const [orderMessage, setOrderMessage] = useState(null);
+  const [showQrCodes, setShowQrCodes] = useState(false);
 
   const categories = useMemo(() => {
     const unique = new Set();
@@ -209,6 +211,7 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
       houseNo: "",
       addressLabel: "home",
       size: "",
+      gcashReference: "",
     });
     setOrderMessage(null);
     const images = [product.imageUrl, ...(product.imageUrls || [])].filter(Boolean);
@@ -255,12 +258,45 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
       houseNo: String(orderForm.houseNo || "").trim(),
       addressLabel: String(orderForm.addressLabel || "").trim(),
       size: String(orderForm.size || "").trim(),
+      gcashReference: String(orderForm.gcashReference || "").trim(),
     };
     if (!payload.customerName || !payload.phone) {
       setOrderMessage({
         type: "error",
         text: "Please add your name and phone number.",
       });
+      return;
+    }
+    if (!/^\d{11,12}$/.test(payload.phone)) {
+      setOrderMessage({
+        type: "error",
+        text: "Phone number must be 11 or 12 digits.",
+      });
+      window.alert("Phone number must be 11 or 12 digits.");
+      return;
+    }
+    if (orderModal.product?.sizes?.length && !payload.size) {
+      setOrderMessage({
+        type: "error",
+        text: "Please select a size.",
+      });
+      window.alert("Please select a size.");
+      return;
+    }
+    if (!payload.region) {
+      setOrderMessage({
+        type: "error",
+        text: "Please select a region.",
+      });
+      window.alert("Please select a region.");
+      return;
+    }
+    if (!payload.gcashReference) {
+      setOrderMessage({
+        type: "error",
+        text: "GCash reference number is required.",
+      });
+      window.alert("GCash reference number is required.");
       return;
     }
     if (!Number.isFinite(payload.quantity) || payload.quantity <= 0) {
@@ -301,6 +337,7 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
         houseNo: "",
         addressLabel: "home",
         size: "",
+        gcashReference: "",
       });
     } catch (error) {
       setOrderMessage({
@@ -435,6 +472,17 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
             Printable stickers, cozy tees, and design packs inspired by Tommy
             &amp; Ghazel. Every purchase supports community projects.
           </p>
+          {paymentQrs.length ? (
+            <div className="action-row">
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => setShowQrCodes((prev) => !prev)}
+              >
+                {showQrCodes ? "Hide QR Codes" : "Show QR Codes"}
+              </button>
+            </div>
+          ) : null}
           <div className="shop-controls">
             <div className="shop-search">
               <label htmlFor="shop-search" className="table-cell-muted">
@@ -510,6 +558,31 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
             ))}
           </section>
         )}
+        {showQrCodes && paymentQrs.length ? (
+          <section className="section" id="shop-support">
+            <div className="section-header">
+              <div>
+                <h2>Scan to Pay (GCash/QR)</h2>
+                <p>Use any of the QR codes below to pay, then wait for our confirmation.</p>
+              </div>
+              <img className="section-icon" src="/assets/deer-mark.svg" alt="Deer icon" />
+            </div>
+            <div className="qr-grid">
+              {paymentQrs.map((qr) => (
+                <article key={qr.id} className="contact-card qr-card">
+                  <h3>{qr.title || "Deer Army QR Code"}</h3>
+                  {qr.note ? <p>{qr.note}</p> : null}
+                  <img
+                    src={getQrPreviewUrl(qr.imageUrl)}
+                    alt="Deer Army payment QR code"
+                    className="qr-image"
+                    onError={(event) => applyImageFallback(event, normalizeImageUrl(qr.imageUrl))}
+                  />
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </main>
       {orderModal.open && orderModal.product ? (
         <div
@@ -641,7 +714,10 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                   <label>
                     Phone Number
                     <input
-                      type="text"
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]{11,12}"
+                      maxLength={12}
                       name="phone"
                       value={orderForm.phone}
                       onChange={handleOrderInput("phone")}
@@ -770,13 +846,50 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                       required
                     />
                   </label>
+                  <label>
+                    GCash Reference Number
+                    <input
+                      type="text"
+                      name="gcashReference"
+                      value={orderForm.gcashReference}
+                      onChange={handleOrderInput("gcashReference")}
+                      required
+                    />
+                  </label>
                   <div className="modal-card">
                     <p className="table-cell-muted">Order Summary</p>
                     <p className="product-price">
                       {formatAmount(orderQuantity * orderModal.product.price)}
                     </p>
                   </div>
-                  <button className="primary-button" type="submit">
+                  {paymentQrs.length ? (
+                    <div className="action-row">
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        onClick={() => setShowQrCodes((prev) => !prev)}
+                      >
+                        {showQrCodes ? "Hide QR Codes" : "Show QR Codes"}
+                      </button>
+                    </div>
+                  ) : null}
+                  {showQrCodes && paymentQrs.length ? (
+                    <div className="qr-grid">
+                      <article className="contact-card qr-card">
+                        <img
+                          src={getQrPreviewUrl(paymentQrs[0].imageUrl)}
+                          alt="Deer Army payment QR code"
+                          className="qr-image"
+                          onError={(event) => applyImageFallback(event, normalizeImageUrl(paymentQrs[0].imageUrl))}
+                        />
+                      </article>
+                    </div>
+                  ) : null}
+                  <button
+                    className="primary-button"
+                    type="submit"
+                    disabled={!orderForm.gcashReference.trim()}
+                  >
                     Place Order
                   </button>
                   {orderMessage ? (
