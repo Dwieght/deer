@@ -1280,8 +1280,10 @@ textarea {
   border-radius: var(--radius-md);
   padding: 18px;
   box-shadow: var(--soft-shadow);
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+  min-height: 320px;
 }
 
 .product-card.is-clickable {
@@ -1319,6 +1321,23 @@ textarea {
   font-weight: 700;
   color: var(--forest);
   margin: 4px 0;
+}
+
+.product-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.product-description {
+  white-space: pre-line;
+  font-size: 0.9rem;
+  color: rgba(34, 48, 37, 0.8);
+}
+
+.product-description.is-empty {
+  color: rgba(34, 48, 37, 0.45);
 }
 
 .product-price {

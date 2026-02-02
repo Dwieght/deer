@@ -88,6 +88,7 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [orderModal, setOrderModal] = useState({ open: false, product: null });
+  const [descModal, setDescModal] = useState({ open: false, product: null });
   const [orderForm, setOrderForm] = useState({
     customerName: "",
     phone: "",
@@ -181,6 +182,30 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
     });
     return undefined;
   }, [orderModal.open, orderModal.product]);
+
+  useEffect(() => {
+    if (!descModal.open) {
+      return undefined;
+    }
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [descModal.open]);
+
+  useEffect(() => {
+    if (!descModal.open) {
+      return undefined;
+    }
+    const handleKey = (event) => {
+      if (event.key === "Escape") {
+        setDescModal({ open: false, product: null });
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [descModal.open]);
 
   useEffect(() => {
     if (!orderModal.open) {
@@ -549,9 +574,28 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                   }
                 />
                 <span className="product-category">{product.category}</span>
-                <div>
+                <div className="product-content">
                   <h3 className="product-name">{product.name}</h3>
-                  {product.description ? <p>{product.description}</p> : null}
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setDescModal({ open: true, product });
+                    }}
+                  >
+                    View Description
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openOrderModal(product);
+                    }}
+                  >
+                    Buy Now
+                  </button>
                 </div>
                 <p className="product-price">{formatAmount(product.price)}</p>
               </article>
@@ -584,6 +628,59 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
           </section>
         ) : null}
       </main>
+      {descModal.open && descModal.product ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => setDescModal({ open: false, product: null })}
+        >
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="desc-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3 id="desc-modal-title">{descModal.product.name}</h3>
+              <button
+                type="button"
+                className="light-button modal-close"
+                onClick={() => setDescModal({ open: false, product: null })}
+              >
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              <img
+                src={getProductImageUrl(descModal.product.imageUrl)}
+                alt={descModal.product.name}
+                className="dashboard-image"
+                onError={(event) =>
+                  applyImageFallback(event, normalizeImageUrl(descModal.product.imageUrl))
+                }
+              />
+              {descModal.product.description ? (
+                <p className="product-description">{descModal.product.description}</p>
+              ) : (
+                <p className="product-description is-empty">No description yet.</p>
+              )}
+              <div className="action-row">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    setDescModal({ open: false, product: null });
+                    openOrderModal(descModal.product);
+                  }}
+                >
+                  Buy Now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {orderModal.open && orderModal.product ? (
         <div
           className="modal-overlay"
