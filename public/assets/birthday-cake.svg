@@ -1,0 +1,22 @@
+<svg width="360" height="360" viewBox="0 0 360 360" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g opacity="0.2">
+    <ellipse cx="180" cy="300" rx="120" ry="22" fill="#c7d8c5"/>
+    <rect x="90" y="170" width="180" height="110" rx="18" fill="#f7e6c7"/>
+    <rect x="105" y="140" width="150" height="40" rx="16" fill="#f2d6b3"/>
+    <rect x="115" y="200" width="130" height="14" rx="7" fill="#f4b7a6"/>
+    <rect x="115" y="232" width="130" height="14" rx="7" fill="#f4b7a6"/>
+    <rect x="115" y="264" width="130" height="14" rx="7" fill="#f4b7a6"/>
+
+    <rect x="150" y="105" width="10" height="30" rx="4" fill="#9fbf9f"/>
+    <rect x="175" y="105" width="10" height="30" rx="4" fill="#9fbf9f"/>
+    <rect x="200" y="105" width="10" height="30" rx="4" fill="#9fbf9f"/>
+
+    <circle cx="155" cy="98" r="6" fill="#f6c09e"/>
+    <circle cx="180" cy="98" r="6" fill="#f6c09e"/>
+    <circle cx="205" cy="98" r="6" fill="#f6c09e"/>
+
+    <path d="M155 88 C150 82 158 74 162 80 C166 74 174 82 169 88 Z" fill="#f9b08d"/>
+    <path d="M180 88 C175 82 183 74 187 80 C191 74 199 82 194 88 Z" fill="#f9b08d"/>
+    <path d="M205 88 C200 82 208 74 212 80 C216 74 224 82 219 88 Z" fill="#f9b08d"/>
+  </g>
+</svg>

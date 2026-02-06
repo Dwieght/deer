@@ -103,7 +103,9 @@ function normalizeImageUrl(url) {
     if (value.includes("export=")) {
       return value.replace("export=download", "export=view");
     }
-    return value.includes("?") ? `${value}&export=view` : `${value}?export=view`;
+    return value.includes("?")
+      ? `${value}&export=view`
+      : `${value}?export=view`;
   }
   return value;
 }
@@ -131,7 +133,8 @@ function applyImageFallback(event, fallback) {
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onload = () =>
+      resolve(typeof reader.result === "string" ? reader.result : "");
     reader.onerror = () => reject(new Error("File read failed"));
     reader.readAsDataURL(file);
   });
@@ -143,7 +146,10 @@ function downloadLetterPdf(letter) {
     window.alert("Popup blocked. Please allow popups to download the PDF.");
     return;
   }
-  const safe = (value) => String(value || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const safe = (value) =>
+    String(value || "")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
   win.document.write(`
     <!doctype html>
     <html lang="en">
@@ -176,7 +182,10 @@ function FormMessage({ message }) {
     return null;
   }
   return (
-    <p className="form-message" style={{ color: message.type === "error" ? "#a33" : "#2a3d31" }}>
+    <p
+      className="form-message"
+      style={{ color: message.type === "error" ? "#a33" : "#2a3d31" }}
+    >
       {message.text}
     </p>
   );
@@ -201,11 +210,24 @@ function VideoCarousel({ collection }) {
           <h3>{collection.title}</h3>
           <p>{collection.description}</p>
         </div>
-        <div className="carousel-controls" aria-label={`${collection.title} controls`}>
-          <button className="carousel-arrow" type="button" onClick={() => handleScroll(-1)} aria-label="Scroll left">
+        <div
+          className="carousel-controls"
+          aria-label={`${collection.title} controls`}
+        >
+          <button
+            className="carousel-arrow"
+            type="button"
+            onClick={() => handleScroll(-1)}
+            aria-label="Scroll left"
+          >
             &larr;
           </button>
-          <button className="carousel-arrow" type="button" onClick={() => handleScroll(1)} aria-label="Scroll right">
+          <button
+            className="carousel-arrow"
+            type="button"
+            onClick={() => handleScroll(1)}
+            aria-label="Scroll right"
+          >
             &rarr;
           </button>
         </div>
@@ -242,7 +264,11 @@ export default function HomeClient({
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeGalleryTab, setActiveGalleryTab] = useState("photos");
-  const [lightbox, setLightbox] = useState({ open: false, src: "", caption: "" });
+  const [lightbox, setLightbox] = useState({
+    open: false,
+    src: "",
+    caption: "",
+  });
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [letterMessage, setLetterMessage] = useState(null);
   const [galleryMessage, setGalleryMessage] = useState(null);
@@ -259,7 +285,7 @@ export default function HomeClient({
       videos: sortGallery(gallery.videos),
       art: sortGallery(gallery.art),
     }),
-    [gallery]
+    [gallery],
   );
 
   useEffect(() => {
@@ -280,7 +306,7 @@ export default function HomeClient({
           }
         });
       },
-      { threshold: 0.2 }
+      { threshold: 0.2 },
     );
 
     items.forEach((item) => observer.observe(item));
@@ -375,7 +401,10 @@ export default function HomeClient({
     };
 
     if (!payload.name || !payload.messageEn) {
-      setLetterMessage({ type: "error", text: "Please include your name and an English message." });
+      setLetterMessage({
+        type: "error",
+        text: "Please include your name and an English message.",
+      });
       return;
     }
 
@@ -387,13 +416,22 @@ export default function HomeClient({
       });
       const data = await response.json();
       if (!response.ok) {
-        setLetterMessage({ type: "error", text: data?.error || "Submission failed." });
+        setLetterMessage({
+          type: "error",
+          text: data?.error || "Submission failed.",
+        });
         return;
       }
       form.reset();
-      setLetterMessage({ type: "success", text: "Letter received! It will appear after approval." });
+      setLetterMessage({
+        type: "success",
+        text: "Letter received! It will appear after approval.",
+      });
     } catch (error) {
-      setLetterMessage({ type: "error", text: "Submission failed. Please try again." });
+      setLetterMessage({
+        type: "error",
+        text: "Submission failed. Please try again.",
+      });
     }
   };
 
@@ -408,7 +446,10 @@ export default function HomeClient({
     const file = formData.get("file");
 
     if (!contributor || !caption) {
-      setGalleryMessage({ type: "error", text: "Please add your name and a caption." });
+      setGalleryMessage({
+        type: "error",
+        text: "Please add your name and a caption.",
+      });
       return;
     }
 
@@ -426,16 +467,25 @@ export default function HomeClient({
         });
         const data = await response.json();
         if (!response.ok) {
-          setGalleryMessage({ type: "error", text: data?.error || "Submission failed." });
+          setGalleryMessage({
+            type: "error",
+            text: data?.error || "Submission failed.",
+          });
           return;
         }
         form.reset();
-        setGalleryMessage({ type: "success", text: "Video received! It will appear after approval." });
+        setGalleryMessage({
+          type: "success",
+          text: "Video received! It will appear after approval.",
+        });
         return;
       }
 
       if (!(file instanceof File) || file.size === 0) {
-        setGalleryMessage({ type: "error", text: "Please upload an image file." });
+        setGalleryMessage({
+          type: "error",
+          text: "Please upload an image file.",
+        });
         return;
       }
 
@@ -451,17 +501,31 @@ export default function HomeClient({
       const response = await fetch("/api/submissions/gallery", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: contributor, caption, category, imageData }),
+        body: JSON.stringify({
+          name: contributor,
+          caption,
+          category,
+          imageData,
+        }),
       });
       const data = await response.json();
       if (!response.ok) {
-        setGalleryMessage({ type: "error", text: data?.error || "Submission failed." });
+        setGalleryMessage({
+          type: "error",
+          text: data?.error || "Submission failed.",
+        });
         return;
       }
       form.reset();
-      setGalleryMessage({ type: "success", text: "Upload received! It will appear after approval." });
+      setGalleryMessage({
+        type: "success",
+        text: "Upload received! It will appear after approval.",
+      });
     } catch (error) {
-      setGalleryMessage({ type: "error", text: "Submission failed. Please try again." });
+      setGalleryMessage({
+        type: "error",
+        text: "Submission failed. Please try again.",
+      });
     }
   };
 
@@ -477,7 +541,10 @@ export default function HomeClient({
     };
 
     if (!payload.name || !payload.email || !payload.message) {
-      setContactMessage({ type: "error", text: "Please fill out all required fields." });
+      setContactMessage({
+        type: "error",
+        text: "Please fill out all required fields.",
+      });
       return;
     }
 
@@ -489,13 +556,22 @@ export default function HomeClient({
       });
       const data = await response.json();
       if (!response.ok) {
-        setContactMessage({ type: "error", text: data?.error || "Submission failed." });
+        setContactMessage({
+          type: "error",
+          text: data?.error || "Submission failed.",
+        });
         return;
       }
       form.reset();
-      setContactMessage({ type: "success", text: "Submission received! We'll review it soon." });
+      setContactMessage({
+        type: "success",
+        text: "Submission received! We'll review it soon.",
+      });
     } catch (error) {
-      setContactMessage({ type: "error", text: "Submission failed. Please try again." });
+      setContactMessage({
+        type: "error",
+        text: "Submission failed. Please try again.",
+      });
     }
   };
 
@@ -511,7 +587,10 @@ export default function HomeClient({
     };
 
     if (!payload.name || !payload.email) {
-      setJoinMessage({ type: "error", text: "Please add your name and email to join." });
+      setJoinMessage({
+        type: "error",
+        text: "Please add your name and email to join.",
+      });
       return;
     }
 
@@ -523,13 +602,22 @@ export default function HomeClient({
       });
       const data = await response.json();
       if (!response.ok) {
-        setJoinMessage({ type: "error", text: data?.error || "Submission failed." });
+        setJoinMessage({
+          type: "error",
+          text: data?.error || "Submission failed.",
+        });
         return;
       }
       form.reset();
-      setJoinMessage({ type: "success", text: "Thanks for joining! We will review your request soon." });
+      setJoinMessage({
+        type: "success",
+        text: "Thanks for joining! We will review your request soon.",
+      });
     } catch (error) {
-      setJoinMessage({ type: "error", text: "Submission failed. Please try again." });
+      setJoinMessage({
+        type: "error",
+        text: "Submission failed. Please try again.",
+      });
     }
   };
 
@@ -544,7 +632,10 @@ export default function HomeClient({
     };
 
     if (!payload.senderName || !payload.referenceNumber) {
-      setPaymentMessage({ type: "error", text: "Please add your name and the payment reference number." });
+      setPaymentMessage({
+        type: "error",
+        text: "Please add your name and the payment reference number.",
+      });
       return;
     }
 
@@ -556,21 +647,35 @@ export default function HomeClient({
       });
       const data = await response.json();
       if (!response.ok) {
-        setPaymentMessage({ type: "error", text: data?.error || "Submission failed." });
+        setPaymentMessage({
+          type: "error",
+          text: data?.error || "Submission failed.",
+        });
         return;
       }
       form.reset();
-      setPaymentMessage({ type: "success", text: "Reference received! Thank you for your support." });
+      setPaymentMessage({
+        type: "success",
+        text: "Reference received! Thank you for your support.",
+      });
     } catch (error) {
-      setPaymentMessage({ type: "error", text: "Submission failed. Please try again." });
+      setPaymentMessage({
+        type: "error",
+        text: "Submission failed. Please try again.",
+      });
     }
   };
 
-  const activeQr = paymentQrs.find((qr) => qr.id === activeQrId) || paymentQrs[0] || null;
-  const activeQrImage = activeQr?.imageUrl ? getQrPreviewUrl(activeQr.imageUrl) : "";
+  const activeQr =
+    paymentQrs.find((qr) => qr.id === activeQrId) || paymentQrs[0] || null;
+  const activeQrImage = activeQr?.imageUrl
+    ? getQrPreviewUrl(activeQr.imageUrl)
+    : "";
   const headerQrImage = activeQrImage || "/assets/deer-mark.svg";
   const headerQrAlt = activeQrImage ? "Support QR" : "Support icon";
-  const headerQrFallback = activeQr?.imageUrl ? normalizeQrImageUrl(activeQr.imageUrl) : "";
+  const headerQrFallback = activeQr?.imageUrl
+    ? normalizeQrImageUrl(activeQr.imageUrl)
+    : "";
 
   const openQrModal = (qr) => {
     if (!qr) {
@@ -610,17 +715,48 @@ export default function HomeClient({
           <a href="#updates">Updates</a>
           <a href="#letters">Fan Letters</a>
           <a href="#gifts">Gifts &amp; Surprises</a>
-          <a href="#videos">Videos</a>
-          <a href="#gallery">Fan Gallery</a>
           <a href="/shop">Shop</a>
           <a href="#support">Support</a>
-          <a href="#join">Join</a>
-          <a href="#announcements">Announcements</a>
-          <a href="#about">About Us</a>
-          <a href="#contact">Contact</a>
-          <a href="/login">Login</a>
-          <a href="/dashboard">Dashboard</a>
+          <div className="nav-dropdown">
+            <button
+              className="nav-dropdown-toggle"
+              type="button"
+              aria-haspopup="menu"
+            >
+              More
+            </button>
+            <div className="nav-dropdown-menu" role="menu">
+              <a role="menuitem" href="#videos">
+                Videos
+              </a>
+              <a role="menuitem" href="#gallery">
+                Fan Gallery
+              </a>
+              <a role="menuitem" href="#join">
+                Join
+              </a>
+              <a role="menuitem" href="#announcements">
+                Announcements
+              </a>
+              <a role="menuitem" href="#about">
+                About Us
+              </a>
+              <a role="menuitem" href="#contact">
+                Contact
+              </a>
+              <a role="menuitem" href="/birthday">
+                Birthday
+              </a>
+              <a role="menuitem" href="/login">
+                Login
+              </a>
+              <a role="menuitem" href="/dashboard">
+                Dashboard
+              </a>
+            </div>
+          </div>
         </nav>
+
         <div className="nav-actions">
           <a className="header-qr" href="#support" aria-label="Support QR code">
             <img
@@ -642,7 +778,10 @@ export default function HomeClient({
         </div>
       </header>
 
-      <aside className={`mobile-menu ${mobileMenuOpen ? "is-open" : ""}`} aria-label="Mobile">
+      <aside
+        className={`mobile-menu ${mobileMenuOpen ? "is-open" : ""}`}
+        aria-label="Mobile"
+      >
         <a href="#home" onClick={() => setMobileMenuOpen(false)}>
           Home
         </a>
@@ -655,39 +794,49 @@ export default function HomeClient({
         <a href="#gifts" onClick={() => setMobileMenuOpen(false)}>
           Gifts &amp; Surprises
         </a>
-        <a href="#videos" onClick={() => setMobileMenuOpen(false)}>
-          Videos
-        </a>
-        <a href="#gallery" onClick={() => setMobileMenuOpen(false)}>
-          Fan Gallery
-        </a>
         <a href="/shop" onClick={() => setMobileMenuOpen(false)}>
           Shop
         </a>
         <a href="#support" onClick={() => setMobileMenuOpen(false)}>
           Support
         </a>
-        <a href="#join" onClick={() => setMobileMenuOpen(false)}>
-          Join
-        </a>
-        <a href="#announcements" onClick={() => setMobileMenuOpen(false)}>
-          Announcements
-        </a>
-        <a href="#about" onClick={() => setMobileMenuOpen(false)}>
-          About Us
-        </a>
-        <a href="#contact" onClick={() => setMobileMenuOpen(false)}>
-          Contact
-        </a>
-        <a href="/login" onClick={() => setMobileMenuOpen(false)}>
-          Login
-        </a>
-        <a href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-          Dashboard
-        </a>
+        <details className="mobile-dropdown">
+          <summary>More</summary>
+          <div className="mobile-dropdown-links">
+            <a href="#videos" onClick={() => setMobileMenuOpen(false)}>
+              Videos
+            </a>
+            <a href="#gallery" onClick={() => setMobileMenuOpen(false)}>
+              Fan Gallery
+            </a>
+            <a href="#join" onClick={() => setMobileMenuOpen(false)}>
+              Join
+            </a>
+            <a href="#announcements" onClick={() => setMobileMenuOpen(false)}>
+              Announcements
+            </a>
+            <a href="#about" onClick={() => setMobileMenuOpen(false)}>
+              About Us
+            </a>
+            <a href="#contact" onClick={() => setMobileMenuOpen(false)}>
+              Contact
+            </a>
+            <a href="/birthday" onClick={() => setMobileMenuOpen(false)}>
+              Birthday
+            </a>
+            <a href="/login" onClick={() => setMobileMenuOpen(false)}>
+              Login
+            </a>
+            <a href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+              Dashboard
+            </a>
+          </div>
+        </details>
         {activeQrImage ? (
           <div className="mobile-qr-card">
-            <p className="mobile-qr-title">{activeQr.title || "Support the Deer Army"}</p>
+            <p className="mobile-qr-title">
+              {activeQr.title || "Support the Deer Army"}
+            </p>
             <img src={activeQrImage} alt="Support QR code" />
             <a href="#support" onClick={() => setMobileMenuOpen(false)}>
               Go to Support
@@ -702,8 +851,9 @@ export default function HomeClient({
             <p className="eyebrow">Welcome, Tommy &amp; Ghazel</p>
             <h1>A warm digital home for the Deer Army community 🦌</h1>
             <p className="lead">
-              This is our shared space to celebrate your kindness, talent, and laughter. Together we keep the
-              Deer Army glowing with love, hope, and unity.
+              This is our shared space to celebrate your kindness, talent, and
+              laughter. Together we keep the Deer Army glowing with love, hope,
+              and unity.
             </p>
             <div className="hero-actions">
               <a className="primary-button" href="#letters">
@@ -719,11 +869,16 @@ export default function HomeClient({
             <div className="hero-meta">
               <div className="meta-card">
                 <h3>Deer Army Heartbeat</h3>
-                <p>Soft greens, warm hearts, and a community that always shows up.</p>
+                <p>
+                  Soft greens, warm hearts, and a community that always shows
+                  up.
+                </p>
               </div>
               <div className="meta-card">
                 <h3>Latest Love Notes</h3>
-                <p>Fresh updates and announcements curated by the community team.</p>
+                <p>
+                  Fresh updates and announcements curated by the community team.
+                </p>
               </div>
             </div>
           </div>
@@ -734,12 +889,19 @@ export default function HomeClient({
                 type="button"
                 aria-label="Previous slide"
                 onClick={() =>
-                  setCarouselIndex((prev) => (prev - 1 + CAROUSEL_SLIDES.length) % CAROUSEL_SLIDES.length)
+                  setCarouselIndex(
+                    (prev) =>
+                      (prev - 1 + CAROUSEL_SLIDES.length) %
+                      CAROUSEL_SLIDES.length,
+                  )
                 }
               >
                 <span>&larr;</span>
               </button>
-              <div className="carousel-track" style={{ transform: `translateX(-${carouselIndex * 100}%)` }}>
+              <div
+                className="carousel-track"
+                style={{ transform: `translateX(-${carouselIndex * 100}%)` }}
+              >
                 {CAROUSEL_SLIDES.map((slide, index) => (
                   <figure
                     key={slide.src}
@@ -750,7 +912,9 @@ export default function HomeClient({
                       alt={slide.alt}
                       loading="lazy"
                       className="lightbox-trigger"
-                      onClick={() => handleLightboxOpen(slide.src, slide.caption)}
+                      onClick={() =>
+                        handleLightboxOpen(slide.src, slide.caption)
+                      }
                     />
                     <figcaption>{slide.caption}</figcaption>
                   </figure>
@@ -760,7 +924,11 @@ export default function HomeClient({
                 className="carousel-control next"
                 type="button"
                 aria-label="Next slide"
-                onClick={() => setCarouselIndex((prev) => (prev + 1) % CAROUSEL_SLIDES.length)}
+                onClick={() =>
+                  setCarouselIndex(
+                    (prev) => (prev + 1) % CAROUSEL_SLIDES.length,
+                  )
+                }
               >
                 <span>&rarr;</span>
               </button>
@@ -789,10 +957,16 @@ export default function HomeClient({
               <h2>Latest Updates &amp; Announcements</h2>
               <p>Fresh moments, new projects, and community notes.</p>
             </div>
-            <img className="section-icon" src="/assets/deer-mark.svg" alt="Deer icon" />
+            <img
+              className="section-icon"
+              src="/assets/deer-mark.svg"
+              alt="Deer icon"
+            />
           </div>
           <div className="card-grid">
-            {updates.length === 0 ? <p className="empty-state">No updates yet.</p> : null}
+            {updates.length === 0 ? (
+              <p className="empty-state">No updates yet.</p>
+            ) : null}
             {updates.map((update, index) => (
               <article key={`${update.title}-${index}`} className="card">
                 <span className="badge">{formatDate(update.date)}</span>
@@ -807,9 +981,16 @@ export default function HomeClient({
           <div className="section-header reveal">
             <div>
               <h2>Fan Letters</h2>
-              <p>Every message is a hug for Tommy &amp; Ghazel. Read in English and Arabic.</p>
+              <p>
+                Every message is a hug for Tommy &amp; Ghazel. Read in English
+                and Arabic.
+              </p>
             </div>
-            <img className="section-icon" src="/assets/deer-mark.svg" alt="Deer icon" />
+            <img
+              className="section-icon"
+              src="/assets/deer-mark.svg"
+              alt="Deer icon"
+            />
           </div>
 
           <div className="letters-grid">
@@ -824,7 +1005,12 @@ export default function HomeClient({
                 ) : null}
                 <div className="letter-actions">
                   {letter.tiktok ? (
-                    <a className="letter-link" href={letter.tiktok} target="_blank" rel="noopener">
+                    <a
+                      className="letter-link"
+                      href={letter.tiktok}
+                      target="_blank"
+                      rel="noopener"
+                    >
                       TikTok
                     </a>
                   ) : null}
@@ -846,7 +1032,13 @@ export default function HomeClient({
               <div className="form-row">
                 <label htmlFor="letter-name">
                   Fan Name
-                  <input id="letter-name" type="text" name="name" placeholder="Your name" required />
+                  <input
+                    id="letter-name"
+                    type="text"
+                    name="name"
+                    placeholder="Your name"
+                    required
+                  />
                 </label>
                 <label htmlFor="letter-tiktok">
                   TikTok Link
@@ -883,7 +1075,9 @@ export default function HomeClient({
               <button className="primary-button" type="submit">
                 Send Letter
               </button>
-              <p className="form-note">Letters are reviewed before appearing on the homepage.</p>
+              <p className="form-note">
+                Letters are reviewed before appearing on the homepage.
+              </p>
               <FormMessage message={letterMessage} />
             </form>
           </div>
@@ -893,9 +1087,15 @@ export default function HomeClient({
           <div className="section-header reveal">
             <div>
               <h2>Gifts &amp; Surprises Timeline</h2>
-              <p>From flowers to groceries, every surprise tells a story of love.</p>
+              <p>
+                From flowers to groceries, every surprise tells a story of love.
+              </p>
             </div>
-            <img className="section-icon" src="/assets/deer-mark.svg" alt="Deer icon" />
+            <img
+              className="section-icon"
+              src="/assets/deer-mark.svg"
+              alt="Deer icon"
+            />
           </div>
 
           <div className="timeline">
@@ -908,7 +1108,12 @@ export default function HomeClient({
                       alt={gift.title}
                       loading="lazy"
                       className="lightbox-trigger"
-                      onClick={() => handleLightboxOpen(normalizeImageUrl(gift.image), gift.title)}
+                      onClick={() =>
+                        handleLightboxOpen(
+                          normalizeImageUrl(gift.image),
+                          gift.title,
+                        )
+                      }
                     />
                   ) : null}
                 </div>
@@ -937,19 +1142,38 @@ export default function HomeClient({
           <div className="section-header reveal">
             <div>
               <h2>Deer Army Video Library</h2>
-              <p>Behind-the-scenes moments and community highlights, ready to watch.</p>
+              <p>
+                Behind-the-scenes moments and community highlights, ready to
+                watch.
+              </p>
             </div>
-            <img className="section-icon" src="/assets/deer-mark.svg" alt="Deer icon" />
+            <img
+              className="section-icon"
+              src="/assets/deer-mark.svg"
+              alt="Deer icon"
+            />
           </div>
-          {videoCollections.length === 0 ? <p className="empty-state">No videos yet.</p> : null}
+          {videoCollections.length === 0 ? (
+            <p className="empty-state">No videos yet.</p>
+          ) : null}
           {videoCollections.map((collection) => {
             if (collection.layout === "CAROUSEL") {
-              return <VideoCarousel key={collection.id || collection.title} collection={collection} />;
+              return (
+                <VideoCarousel
+                  key={collection.id || collection.title}
+                  collection={collection}
+                />
+              );
             }
             return (
-              <div key={collection.id || collection.title} className="video-collection reveal">
+              <div
+                key={collection.id || collection.title}
+                className="video-collection reveal"
+              >
                 <h3>{collection.title}</h3>
-                {collection.description ? <p>{collection.description}</p> : null}
+                {collection.description ? (
+                  <p>{collection.description}</p>
+                ) : null}
                 <div className="card-grid">
                   {collection.items.map((item, index) => (
                     <article key={`${item.title}-${index}`} className="card">
@@ -977,7 +1201,11 @@ export default function HomeClient({
               <h2>Fan Gallery</h2>
               <p>Photos, edits, and fan art organized by contributor name.</p>
             </div>
-            <img className="section-icon" src="/assets/deer-mark.svg" alt="Deer icon" />
+            <img
+              className="section-icon"
+              src="/assets/deer-mark.svg"
+              alt="Deer icon"
+            />
           </div>
 
           <div className="gallery-controls">
@@ -1006,16 +1234,26 @@ export default function HomeClient({
 
           {activeGalleryTab === "photos" ? (
             <div className="gallery-panel">
-              {galleryLists.photos.length === 0 ? <p className="empty-state">No photos yet.</p> : null}
+              {galleryLists.photos.length === 0 ? (
+                <p className="empty-state">No photos yet.</p>
+              ) : null}
               <div className="gallery-grid">
                 {galleryLists.photos.map((item, index) => (
-                  <article key={`photo-${item.name}-${item.caption}-${index}`} className="gallery-card">
+                  <article
+                    key={`photo-${item.name}-${item.caption}-${index}`}
+                    className="gallery-card"
+                  >
                     <img
                       src={normalizeImageUrl(item.src)}
                       alt={item.caption}
                       loading="lazy"
                       className="lightbox-trigger"
-                      onClick={() => handleLightboxOpen(normalizeImageUrl(item.src), item.caption)}
+                      onClick={() =>
+                        handleLightboxOpen(
+                          normalizeImageUrl(item.src),
+                          item.caption,
+                        )
+                      }
                     />
                     <div className="gallery-info">
                       <h4>{item.caption}</h4>
@@ -1029,10 +1267,15 @@ export default function HomeClient({
 
           {activeGalleryTab === "videos" ? (
             <div className="gallery-panel">
-              {galleryLists.videos.length === 0 ? <p className="empty-state">No video edits yet.</p> : null}
+              {galleryLists.videos.length === 0 ? (
+                <p className="empty-state">No video edits yet.</p>
+              ) : null}
               <div className="gallery-grid">
                 {galleryLists.videos.map((item, index) => (
-                  <article key={`video-${item.name}-${item.title}-${index}`} className="gallery-card">
+                  <article
+                    key={`video-${item.name}-${item.title}-${index}`}
+                    className="gallery-card"
+                  >
                     <iframe
                       src={item.embed}
                       title={item.title}
@@ -1052,16 +1295,26 @@ export default function HomeClient({
 
           {activeGalleryTab === "art" ? (
             <div className="gallery-panel">
-              {galleryLists.art.length === 0 ? <p className="empty-state">No fan art yet.</p> : null}
+              {galleryLists.art.length === 0 ? (
+                <p className="empty-state">No fan art yet.</p>
+              ) : null}
               <div className="gallery-grid">
                 {galleryLists.art.map((item, index) => (
-                  <article key={`art-${item.name}-${item.caption}-${index}`} className="gallery-card">
+                  <article
+                    key={`art-${item.name}-${item.caption}-${index}`}
+                    className="gallery-card"
+                  >
                     <img
                       src={normalizeImageUrl(item.src)}
                       alt={item.caption}
                       loading="lazy"
                       className="lightbox-trigger"
-                      onClick={() => handleLightboxOpen(normalizeImageUrl(item.src), item.caption)}
+                      onClick={() =>
+                        handleLightboxOpen(
+                          normalizeImageUrl(item.src),
+                          item.caption,
+                        )
+                      }
                     />
                     <div className="gallery-info">
                       <h4>{item.caption}</h4>
@@ -1079,11 +1332,22 @@ export default function HomeClient({
               <div className="form-row">
                 <label htmlFor="gallery-contributor">
                   Contributor Name
-                  <input id="gallery-contributor" type="text" name="contributor" placeholder="Your name" required />
+                  <input
+                    id="gallery-contributor"
+                    type="text"
+                    name="contributor"
+                    placeholder="Your name"
+                    required
+                  />
                 </label>
                 <label htmlFor="gallery-category">
                   Category
-                  <select id="gallery-category" name="category" defaultValue="photos" required>
+                  <select
+                    id="gallery-category"
+                    name="category"
+                    defaultValue="photos"
+                    required
+                  >
                     <option value="photos">Photo</option>
                     <option value="videos">Video Edit</option>
                     <option value="art">Fan Art</option>
@@ -1093,21 +1357,39 @@ export default function HomeClient({
               <div className="form-row">
                 <label htmlFor="gallery-file">
                   Photo/Fan Art Upload
-                  <input id="gallery-file" type="file" name="file" accept="image/*" />
+                  <input
+                    id="gallery-file"
+                    type="file"
+                    name="file"
+                    accept="image/*"
+                  />
                 </label>
                 <label htmlFor="gallery-video">
                   Video URL (YouTube/TikTok)
-                  <input id="gallery-video" type="url" name="videoUrl" placeholder="https://www.youtube.com/watch?v=..." />
+                  <input
+                    id="gallery-video"
+                    type="url"
+                    name="videoUrl"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                  />
                 </label>
               </div>
               <label htmlFor="gallery-caption">
                 Caption
-                <input id="gallery-caption" type="text" name="caption" placeholder="Add a short caption" required />
+                <input
+                  id="gallery-caption"
+                  type="text"
+                  name="caption"
+                  placeholder="Add a short caption"
+                  required
+                />
               </label>
               <button className="primary-button" type="submit">
                 Add to Gallery
               </button>
-              <p className="form-note">Submissions are reviewed before appearing on the homepage.</p>
+              <p className="form-note">
+                Submissions are reviewed before appearing on the homepage.
+              </p>
               <FormMessage message={galleryMessage} />
             </form>
           </div>
@@ -1117,16 +1399,25 @@ export default function HomeClient({
           <div className="section-header reveal">
             <div>
               <h2>Support the Deer Army</h2>
-              <p>Scan the QR code to send a gift, then share your reference number.</p>
+              <p>
+                Scan the QR code to send a gift, then share your reference
+                number.
+              </p>
             </div>
-            <img className="section-icon" src="/assets/deer-mark.svg" alt="Deer icon" />
+            <img
+              className="section-icon"
+              src="/assets/deer-mark.svg"
+              alt="Deer icon"
+            />
           </div>
           <div className="support-grid">
             <div className="qr-grid">
               {paymentQrs.length === 0 ? (
                 <div className="contact-card qr-card reveal">
                   <h3>Deer Army QR Code</h3>
-                  <p className="empty-state">QR code is not available yet. Please check back soon.</p>
+                  <p className="empty-state">
+                    QR code is not available yet. Please check back soon.
+                  </p>
                 </div>
               ) : (
                 paymentQrs.map((qr) => (
@@ -1140,9 +1431,18 @@ export default function HomeClient({
                       src={getQrPreviewUrl(qr.imageUrl)}
                       alt="Deer Army payment QR code"
                       className="qr-image"
-                      onError={(event) => applyImageFallback(event, normalizeQrImageUrl(qr.imageUrl))}
+                      onError={(event) =>
+                        applyImageFallback(
+                          event,
+                          normalizeQrImageUrl(qr.imageUrl),
+                        )
+                      }
                     />
-                    <button className="secondary-button" type="button" onClick={() => openQrModal(qr)}>
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => openQrModal(qr)}
+                    >
                       Use this QR
                     </button>
                   </article>
@@ -1175,17 +1475,29 @@ export default function HomeClient({
                 <div className="form-row">
                   <label htmlFor="payment-sender">
                     Sender Name
-                    <input id="payment-sender" type="text" name="senderName" required />
+                    <input
+                      id="payment-sender"
+                      type="text"
+                      name="senderName"
+                      required
+                    />
                   </label>
                   <label htmlFor="payment-reference">
                     Reference Number
-                    <input id="payment-reference" type="text" name="referenceNumber" required />
+                    <input
+                      id="payment-reference"
+                      type="text"
+                      name="referenceNumber"
+                      required
+                    />
                   </label>
                 </div>
                 <button className="primary-button" type="submit">
                   Submit Reference
                 </button>
-                <p className="form-note">We use this to match your support with our records.</p>
+                <p className="form-note">
+                  We use this to match your support with our records.
+                </p>
                 <FormMessage message={paymentMessage} />
               </form>
             </div>
@@ -1196,15 +1508,28 @@ export default function HomeClient({
           <div className="section-header reveal">
             <div>
               <h2>Join the Deer Army</h2>
-              <p>Introduce yourself and become part of our warm, supportive fandom family.</p>
+              <p>
+                Introduce yourself and become part of our warm, supportive
+                fandom family.
+              </p>
             </div>
-            <img className="section-icon" src="/assets/deer-mark.svg" alt="Deer icon" />
+            <img
+              className="section-icon"
+              src="/assets/deer-mark.svg"
+              alt="Deer icon"
+            />
           </div>
           <div className="join-grid">
             <div className="contact-card reveal">
               <h3>What to expect</h3>
-              <p>Community updates, project invites, and a safe space to celebrate Tommy &amp; Ghazel.</p>
-              <p>We review every request to keep the Deer Army welcoming and kind.</p>
+              <p>
+                Community updates, project invites, and a safe space to
+                celebrate Tommy &amp; Ghazel.
+              </p>
+              <p>
+                We review every request to keep the Deer Army welcoming and
+                kind.
+              </p>
             </div>
             <div className="form-card reveal">
               <h3>Join Request Form</h3>
@@ -1221,16 +1546,27 @@ export default function HomeClient({
                 </div>
                 <label htmlFor="join-location">
                   Location (optional)
-                  <input id="join-location" type="text" name="location" placeholder="City, Country" />
+                  <input
+                    id="join-location"
+                    type="text"
+                    name="location"
+                    placeholder="City, Country"
+                  />
                 </label>
                 <label htmlFor="join-message">
                   Message (optional)
-                  <textarea id="join-message" name="message" rows="3"></textarea>
+                  <textarea
+                    id="join-message"
+                    name="message"
+                    rows="3"
+                  ></textarea>
                 </label>
                 <button className="primary-button" type="submit">
                   Submit Join Request
                 </button>
-                <p className="form-note">Requests are reviewed before we add you to the community list.</p>
+                <p className="form-note">
+                  Requests are reviewed before we add you to the community list.
+                </p>
                 <FormMessage message={joinMessage} />
               </form>
             </div>
@@ -1241,12 +1577,20 @@ export default function HomeClient({
           <div className="section-header reveal">
             <div>
               <h2>Announcements Board</h2>
-              <p>Important dates, community updates, and upcoming celebrations.</p>
+              <p>
+                Important dates, community updates, and upcoming celebrations.
+              </p>
             </div>
-            <img className="section-icon" src="/assets/deer-mark.svg" alt="Deer icon" />
+            <img
+              className="section-icon"
+              src="/assets/deer-mark.svg"
+              alt="Deer icon"
+            />
           </div>
           <div className="card-grid">
-            {announcements.length === 0 ? <p className="empty-state">No announcements yet.</p> : null}
+            {announcements.length === 0 ? (
+              <p className="empty-state">No announcements yet.</p>
+            ) : null}
             {announcements.map((announcement, index) => (
               <article key={`${announcement.title}-${index}`} className="card">
                 <span className="badge">{formatDate(announcement.date)}</span>
@@ -1263,19 +1607,29 @@ export default function HomeClient({
               <h2>About Deer Army</h2>
               <p>How this loving fandom formed and what we stand for.</p>
             </div>
-            <img className="section-icon" src="/assets/deer-mark.svg" alt="Deer icon" />
+            <img
+              className="section-icon"
+              src="/assets/deer-mark.svg"
+              alt="Deer icon"
+            />
           </div>
           <div className="about-grid">
             <div className="about-card reveal">
               <h3>Our Story</h3>
-              {about?.story ? <p>{about.story}</p> : <p className="empty-state">Add your story in the dashboard.</p>}
+              {about?.story ? (
+                <p>{about.story}</p>
+              ) : (
+                <p className="empty-state">Add your story in the dashboard.</p>
+              )}
             </div>
             <div className="about-card reveal">
               <h3>Mission Statement</h3>
               {about?.mission ? (
                 <p>{about.mission}</p>
               ) : (
-                <p className="empty-state">Add the mission statement in the dashboard.</p>
+                <p className="empty-state">
+                  Add the mission statement in the dashboard.
+                </p>
               )}
             </div>
             <div className="about-card reveal">
@@ -1287,7 +1641,9 @@ export default function HomeClient({
                   ))}
                 </ul>
               ) : (
-                <p className="empty-state">Add community guidelines in the dashboard.</p>
+                <p className="empty-state">
+                  Add community guidelines in the dashboard.
+                </p>
               )}
             </div>
           </div>
@@ -1297,9 +1653,16 @@ export default function HomeClient({
           <div className="section-header reveal">
             <div>
               <h2>Contact &amp; Submit</h2>
-              <p>Share letters, photos, videos, or coordination notes with the Deer Army team.</p>
+              <p>
+                Share letters, photos, videos, or coordination notes with the
+                Deer Army team.
+              </p>
             </div>
-            <img className="section-icon" src="/assets/deer-mark.svg" alt="Deer icon" />
+            <img
+              className="section-icon"
+              src="/assets/deer-mark.svg"
+              alt="Deer icon"
+            />
           </div>
           <div className="contact-grid">
             <div className="form-card reveal">
@@ -1312,7 +1675,13 @@ export default function HomeClient({
                   </label>
                   <label htmlFor="contact-email">
                     Email
-                    <input id="contact-email" type="email" name="email" placeholder="you@example.com" required />
+                    <input
+                      id="contact-email"
+                      type="email"
+                      name="email"
+                      placeholder="you@example.com"
+                      required
+                    />
                   </label>
                 </div>
                 <label htmlFor="contact-type">
@@ -1327,12 +1696,19 @@ export default function HomeClient({
                 </label>
                 <label htmlFor="contact-message">
                   Message
-                  <textarea id="contact-message" name="message" rows="4" required></textarea>
+                  <textarea
+                    id="contact-message"
+                    name="message"
+                    rows="4"
+                    required
+                  ></textarea>
                 </label>
                 <button className="primary-button" type="submit">
                   Send to Deer Army
                 </button>
-                <p className="form-note">Submissions are saved for the team to review.</p>
+                <p className="form-note">
+                  Submissions are saved for the team to review.
+                </p>
                 <FormMessage message={contactMessage} />
               </form>
             </div>
@@ -1350,9 +1726,14 @@ export default function HomeClient({
               <div className="contact-note">
                 <p>
                   Email for coordination:{" "}
-                  <a href="mailto:deerarmy@communitymail.com">deerarmy@communitymail.com</a>
+                  <a href="mailto:deerarmy@communitymail.com">
+                    deerarmy@communitymail.com
+                  </a>
                 </p>
-                <p>We&apos;re here to help your surprise reach Tommy &amp; Ghazel with love.</p>
+                <p>
+                  We&apos;re here to help your surprise reach Tommy &amp; Ghazel
+                  with love.
+                </p>
               </div>
             </div>
           </div>
@@ -1360,7 +1741,11 @@ export default function HomeClient({
       </main>
 
       {qrModal.open && qrModal.qr ? (
-        <div className="modal-overlay" role="presentation" onClick={() => setQrModal({ open: false, qr: null })}>
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => setQrModal({ open: false, qr: null })}
+        >
           <div
             className="modal"
             role="dialog"
@@ -1369,7 +1754,9 @@ export default function HomeClient({
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
-              <h3 id="qr-modal-title">{qrModal.qr.title || "Deer Army QR Code"}</h3>
+              <h3 id="qr-modal-title">
+                {qrModal.qr.title || "Deer Army QR Code"}
+              </h3>
               <button
                 type="button"
                 className="light-button modal-close"
@@ -1383,7 +1770,12 @@ export default function HomeClient({
                 src={normalizeQrImageUrl(qrModal.qr.imageUrl)}
                 alt="Deer Army payment QR code"
                 className="dashboard-image"
-                onError={(event) => applyImageFallback(event, driveThumbnailUrl(qrModal.qr.imageUrl))}
+                onError={(event) =>
+                  applyImageFallback(
+                    event,
+                    driveThumbnailUrl(qrModal.qr.imageUrl),
+                  )
+                }
               />
               {qrModal.qr.note ? <p>{qrModal.qr.note}</p> : null}
               <div className="action-row">
@@ -1414,9 +1806,22 @@ export default function HomeClient({
       </footer>
 
       {lightbox.open ? (
-        <div className="lightbox" onClick={handleLightboxClose} role="dialog" aria-modal="true">
-          <div className="lightbox-content" onClick={(event) => event.stopPropagation()}>
-            <button className="lightbox-close" type="button" aria-label="Close" onClick={handleLightboxClose}>
+        <div
+          className="lightbox"
+          onClick={handleLightboxClose}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="lightbox-content"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              className="lightbox-close"
+              type="button"
+              aria-label="Close"
+              onClick={handleLightboxClose}
+            >
               &times;
             </button>
             <img src={lightbox.src} alt="Expanded view" />
