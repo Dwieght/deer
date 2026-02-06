@@ -239,8 +239,14 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
       gcashReference: "",
     });
     setOrderMessage(null);
-    const images = [product.imageUrl, ...(product.imageUrls || [])].filter(Boolean);
-    setOrderModal({ open: true, product: { ...product, images }, imageIndex: 0 });
+    const images = [product.imageUrl, ...(product.imageUrls || [])].filter(
+      Boolean,
+    );
+    setOrderModal({
+      open: true,
+      product: { ...product, images },
+      imageIndex: 0,
+    });
   };
 
   const handleOrderInput = (field) => (event) => {
@@ -346,7 +352,9 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
         type: "success",
         text: "Order placed! We will reach out soon.",
       });
-      window.alert("Order submitted! We will contact you to confirm the details.");
+      window.alert(
+        "Order submitted! We will contact you to confirm the details.",
+      );
       setOrderForm({
         customerName: "",
         phone: "",
@@ -607,9 +615,16 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
             <div className="section-header">
               <div>
                 <h2>Scan to Pay (GCash/QR)</h2>
-                <p>Use any of the QR codes below to pay, then wait for our confirmation.</p>
+                <p>
+                  Use any of the QR codes below to pay, then wait for our
+                  confirmation.
+                </p>
               </div>
-              <img className="section-icon" src="/assets/deer-mark.svg" alt="Deer icon" />
+              <img
+                className="section-icon"
+                src="/assets/deer-mark.svg"
+                alt="Deer icon"
+              />
             </div>
             <div className="qr-grid">
               {paymentQrs.map((qr) => (
@@ -620,7 +635,9 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                     src={getQrPreviewUrl(qr.imageUrl)}
                     alt="Deer Army payment QR code"
                     className="qr-image"
-                    onError={(event) => applyImageFallback(event, normalizeImageUrl(qr.imageUrl))}
+                    onError={(event) =>
+                      applyImageFallback(event, normalizeImageUrl(qr.imageUrl))
+                    }
                   />
                 </article>
               ))}
@@ -657,13 +674,20 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                 alt={descModal.product.name}
                 className="dashboard-image"
                 onError={(event) =>
-                  applyImageFallback(event, normalizeImageUrl(descModal.product.imageUrl))
+                  applyImageFallback(
+                    event,
+                    normalizeImageUrl(descModal.product.imageUrl),
+                  )
                 }
               />
               {descModal.product.description ? (
-                <p className="product-description">{descModal.product.description}</p>
+                <p className="product-description">
+                  {descModal.product.description}
+                </p>
               ) : (
-                <p className="product-description is-empty">No description yet.</p>
+                <p className="product-description is-empty">
+                  No description yet.
+                </p>
               )}
               <div className="action-row">
                 <button
@@ -719,7 +743,10 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                             return prev;
                           }
                           const index = (prev.imageIndex || 0) - 1;
-                          return { ...prev, imageIndex: (index + images.length) % images.length };
+                          return {
+                            ...prev,
+                            imageIndex: (index + images.length) % images.length,
+                          };
                         })
                       }
                     >
@@ -728,9 +755,9 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                     <div className="product-carousel-frame">
                       <img
                         src={getProductImageUrl(
-                          (orderModal.product.images || [orderModal.product.imageUrl])[
-                            orderModal.imageIndex || 0
-                          ]
+                          (orderModal.product.images || [
+                            orderModal.product.imageUrl,
+                          ])[orderModal.imageIndex || 0],
                         )}
                         alt={orderModal.product.name}
                         className="dashboard-image"
@@ -738,10 +765,10 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                           applyImageFallback(
                             event,
                             normalizeImageUrl(
-                              (orderModal.product.images || [orderModal.product.imageUrl])[
-                                orderModal.imageIndex || 0
-                              ]
-                            )
+                              (orderModal.product.images || [
+                                orderModal.product.imageUrl,
+                              ])[orderModal.imageIndex || 0],
+                            ),
                           )
                         }
                       />
@@ -770,7 +797,8 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                 </div>
                 <form className="admin-form" onSubmit={handleOrderSubmit}>
                   <div className="form-note">
-                    Note: At the moment we can only accept orders within the Philippines.
+                    Note: At the moment we can only accept orders within the
+                    Philippines.
                   </div>
                   <label>
                     Full Name
@@ -790,7 +818,8 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                       disabled
                     />
                   </label>
-                  {orderModal.product.sizes && orderModal.product.sizes.length ? (
+                  {orderModal.product.sizes &&
+                  orderModal.product.sizes.length ? (
                     <label>
                       Size
                       <select
@@ -977,7 +1006,12 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                           src={getQrPreviewUrl(paymentQrs[0].imageUrl)}
                           alt="Deer Army payment QR code"
                           className="qr-image"
-                          onError={(event) => applyImageFallback(event, normalizeImageUrl(paymentQrs[0].imageUrl))}
+                          onError={(event) =>
+                            applyImageFallback(
+                              event,
+                              normalizeImageUrl(paymentQrs[0].imageUrl),
+                            )
+                          }
                         />
                       </article>
                     </div>

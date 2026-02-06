@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const SLIDES = [
   {
@@ -35,6 +35,8 @@ const SLIDES = [
 
 export default function BirthdayPage() {
   const [index, setIndex] = useState(0);
+  const [needsGesture, setNeedsGesture] = useState(false);
+  const audioRef = useRef(null);
   const total = SLIDES.length;
   const slide = SLIDES[index];
   const progress = ((index + 1) / total) * 100;
@@ -46,7 +48,7 @@ export default function BirthdayPage() {
     }
     const timer = setInterval(() => {
       setIndex((prev) => (prev + 1) % total);
-    }, 7000);
+    }, 4000);
     return () => clearInterval(timer);
   }, [total]);
 
@@ -62,6 +64,21 @@ export default function BirthdayPage() {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [total]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) {
+      return;
+    }
+    audio.volume = 0.5;
+    audio.muted = false;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.then === "function") {
+      playPromise.then(() => setNeedsGesture(false)).catch(() => setNeedsGesture(true));
+    } else {
+      setNeedsGesture(false);
+    }
+  }, []);
 
   return (
     <div className="birthday-page">
@@ -86,9 +103,35 @@ export default function BirthdayPage() {
           <h1>Angel Llanos</h1>
           <p className="birthday-subtitle">Joined January 12, 2026</p>
         </div>
+        <div className="birthday-portrait">
+          <img src="/assets/angel-llanos.jpeg" alt="Angel Llanos" />
+        </div>
       </header>
 
       <main className="birthday-stage">
+        {needsGesture ? (
+          <div className="birthday-audio-banner" role="status">
+            <span>Music is ready — tap to play.</span>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={async () => {
+                const audio = audioRef.current;
+                if (!audio) {
+                  return;
+                }
+                try {
+                  await audio.play();
+                  setNeedsGesture(false);
+                } catch (error) {
+                  setNeedsGesture(true);
+                }
+              }}
+            >
+              Tap to start
+            </button>
+          </div>
+        ) : null}
         <div className="birthday-card" key={index}>
           <h2>{slide.title}</h2>
           <p>{slide.text}</p>
@@ -109,6 +152,7 @@ export default function BirthdayPage() {
         <div className="birthday-progress">
           <span style={{ width: `${progress}%` }} />
         </div>
+        <audio ref={audioRef} src="/assets/birthday-song.mp3" loop preload="auto" />
       </main>
     </div>
   );
