@@ -61,6 +61,7 @@ export default async function OrdersPage({ searchParams }) {
           <table className="dashboard-table">
             <thead>
               <tr>
+                <th>Order ID</th>
                 <th>Customer</th>
                 <th>Phone</th>
                 <th>Product</th>
@@ -74,6 +75,9 @@ export default async function OrdersPage({ searchParams }) {
             <tbody>
               {ordersPagination.items.map((order) => (
                 <tr key={order.id}>
+                  <td className="table-cell-muted">
+                    {order.id ? order.id.slice(-5) : "—"}
+                  </td>
                   <td>{order.customerName}</td>
                   <td className="table-cell-truncate">{order.phone}</td>
                   <td className="table-cell-truncate">{order.product?.name || "—"}</td>
