@@ -1063,6 +1063,57 @@ export async function declineJoin(_prevState, formData) {
   }
 }
 
+export async function approveFeedback(_prevState, formData) {
+  requireSession();
+  const id = String(formData.get("id") || "");
+  if (!id) {
+    return fail("Missing feedback id.");
+  }
+  try {
+    await prisma.productFeedback.update({
+      where: { id },
+      data: { status: "APPROVED", reviewedAt: new Date() },
+    });
+    revalidatePath("/shop");
+    revalidateDashboard();
+    return ok("Feedback approved.");
+  } catch (error) {
+    return fail("Could not approve feedback.");
+  }
+}
+
+export async function declineFeedback(_prevState, formData) {
+  requireSession();
+  const id = String(formData.get("id") || "");
+  if (!id) {
+    return fail("Missing feedback id.");
+  }
+  try {
+    await prisma.productFeedback.delete({ where: { id } });
+    revalidatePath("/shop");
+    revalidateDashboard();
+    return ok("Feedback declined.");
+  } catch (error) {
+    return fail("Could not decline feedback.");
+  }
+}
+
+export async function deleteFeedback(_prevState, formData) {
+  requireSession();
+  const id = String(formData.get("id") || "");
+  if (!id) {
+    return fail("Missing feedback id.");
+  }
+  try {
+    await prisma.productFeedback.delete({ where: { id } });
+    revalidatePath("/shop");
+    revalidateDashboard();
+    return ok("Feedback deleted.");
+  } catch (error) {
+    return fail("Could not delete feedback.");
+  }
+}
+
 export async function logoutAction() {
   cookies().set(SESSION_COOKIE_NAME, "", {
     httpOnly: true,

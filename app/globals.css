@@ -1296,6 +1296,11 @@ textarea {
   outline-offset: 2px;
 }
 
+.product-card.is-highlight {
+  border: 2px solid var(--moss);
+  box-shadow: 0 0 0 4px rgba(123, 165, 128, 0.2), var(--shadow);
+}
+
 .product-image {
   width: 100%;
   height: 200px;
@@ -1322,6 +1327,103 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.rating-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.rating-summary.is-empty {
+  color: rgba(34, 48, 37, 0.55);
+}
+
+.rating-stars {
+  color: #f3b340;
+  letter-spacing: 1px;
+  font-size: 0.95rem;
+}
+
+.rating-count {
+  color: rgba(34, 48, 37, 0.7);
+}
+
+.feedback-section {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.feedback-link-row {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.feedback-list {
+  display: grid;
+  gap: 12px;
+}
+
+.feedback-card {
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: var(--soft-shadow);
+}
+
+.feedback-card p {
+  margin: 6px 0 0;
+}
+
+.feedback-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.feedback-form {
+  display: grid;
+  gap: 12px;
+}
+
+.feedback-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.rating-input {
+  display: flex;
+  gap: 6px;
+}
+
+.rating-input button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: rgba(34, 48, 37, 0.4);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 8px;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.rating-input button.is-active {
+  color: #f3b340;
+  transform: translateY(-1px);
+}
+
+.rating-input button:focus-visible {
+  outline: 2px solid var(--moss);
+  outline-offset: 2px;
+}
+
+.feedback-message {
+  margin: 0;
+  font-size: 0.9rem;
 }
 
 .product-description {

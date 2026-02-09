@@ -145,6 +145,7 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   orders      Order[]
+  feedbacks   ProductFeedback[]
 }
 
 model Order {
@@ -191,4 +192,16 @@ model PaymentSubmission {
   matched         Boolean  @default(false)
   matchedAt       DateTime?
   createdAt       DateTime @default(now())
+}
+
+model ProductFeedback {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  productId String           @db.ObjectId
+  product   Product          @relation(fields: [productId], references: [id])
+  fullName  String
+  rating    Int
+  message   String
+  status    SubmissionStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+  reviewedAt DateTime?
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 function formatAmount(amount) {
   if (amount === null || amount === undefined) {
@@ -83,12 +83,37 @@ function applyImageFallback(event, fallback) {
   }
 }
 
-export default function ShopClient({ products = [], paymentQrs = [] }) {
+const FILLED_STAR = "\u2605";
+const EMPTY_STAR = "\u2606";
+
+function renderStars(rating) {
+  const value = Math.max(0, Math.min(5, Number(rating) || 0));
+  return FILLED_STAR.repeat(value) + EMPTY_STAR.repeat(5 - value);
+}
+
+export default function ShopClient({
+  products = [],
+  paymentQrs = [],
+  feedbackByProduct = {},
+  initialProductId = "",
+  initialFeedback = false,
+}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [orderModal, setOrderModal] = useState({ open: false, product: null });
   const [descModal, setDescModal] = useState({ open: false, product: null });
+  const [feedbackModal, setFeedbackModal] = useState({
+    open: false,
+    product: null,
+  });
+  const [feedbackForm, setFeedbackForm] = useState({
+    fullName: "",
+    rating: 0,
+    message: "",
+  });
+  const [feedbackHover, setFeedbackHover] = useState(0);
+  const [feedbackMessage, setFeedbackMessage] = useState(null);
   const [orderForm, setOrderForm] = useState({
     customerName: "",
     phone: "",
@@ -108,6 +133,8 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
   });
   const [orderMessage, setOrderMessage] = useState(null);
   const [showQrCodes, setShowQrCodes] = useState(false);
+  const [copiedProductId, setCopiedProductId] = useState("");
+  const hasOpenedRef = useRef(false);
 
   const categories = useMemo(() => {
     const unique = new Set();
@@ -133,6 +160,23 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
         .some((field) => String(field).toLowerCase().includes(query));
     });
   }, [products, searchQuery, activeCategory]);
+
+  const feedbackSummary = useMemo(() => {
+    const summary = {};
+    products.forEach((product) => {
+      const list = feedbackByProduct[product.id] || [];
+      if (!list.length) {
+        summary[product.id] = { avg: 0, count: 0 };
+        return;
+      }
+      const total = list.reduce(
+        (acc, item) => acc + (Number(item.rating) || 0),
+        0,
+      );
+      summary[product.id] = { avg: total / list.length, count: list.length };
+    });
+    return summary;
+  }, [products, feedbackByProduct]);
 
   const REGION_OPTIONS = [
     "Metro Manila",
@@ -220,6 +264,30 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
     return () => window.removeEventListener("keydown", handleKey);
   }, [orderModal.open]);
 
+  useEffect(() => {
+    if (!feedbackModal.open) {
+      return undefined;
+    }
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [feedbackModal.open]);
+
+  useEffect(() => {
+    if (!feedbackModal.open) {
+      return undefined;
+    }
+    const handleKey = (event) => {
+      if (event.key === "Escape") {
+        setFeedbackModal({ open: false, product: null });
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [feedbackModal.open]);
+
   const openOrderModal = (product) => {
     setOrderForm({
       customerName: "",
@@ -248,6 +316,40 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
       imageIndex: 0,
     });
   };
+
+  const openDescModal = (product) => {
+    setDescModal({ open: true, product });
+    setFeedbackForm({ fullName: "", rating: 0, message: "" });
+    setFeedbackHover(0);
+    setFeedbackMessage(null);
+  };
+
+  const openFeedbackModal = (product) => {
+    setFeedbackModal({ open: true, product });
+    setFeedbackForm({ fullName: "", rating: 0, message: "" });
+    setFeedbackHover(0);
+    setFeedbackMessage(null);
+  };
+
+  useEffect(() => {
+    if (!initialProductId || hasOpenedRef.current) {
+      return;
+    }
+    const match = products.find((product) => product.id === initialProductId);
+    if (!match) {
+      return;
+    }
+    hasOpenedRef.current = true;
+    if (initialFeedback) {
+      openFeedbackModal(match);
+    } else {
+      openDescModal(match);
+    }
+    const element = document.getElementById(`product-${match.id}`);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [initialProductId, initialFeedback, products]);
 
   const handleOrderInput = (field) => (event) => {
     const value = event.target.value;
@@ -376,6 +478,68 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
       setOrderMessage({
         type: "error",
         text: "Order failed. Please try again.",
+      });
+    }
+  };
+
+  const handleCopyLink = async (productId, mode = "feedback") => {
+    const base = `${window.location.origin}/shop?product=${encodeURIComponent(
+      productId,
+    )}`;
+    const url = mode === "feedback" ? `${base}&feedback=1` : base;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedProductId(productId);
+      window.setTimeout(() => setCopiedProductId(""), 1500);
+    } catch (error) {
+      window.prompt("Copy this link:", url);
+    }
+  };
+
+  const handleFeedbackSubmit = async (event) => {
+    event.preventDefault();
+    if (!descModal.product) {
+      return;
+    }
+    const payload = {
+      productId: descModal.product.id,
+      fullName: String(feedbackForm.fullName || "").trim(),
+      rating: Number(feedbackForm.rating),
+      message: String(feedbackForm.message || "").trim(),
+    };
+
+    if (!payload.fullName || !payload.message || !payload.rating) {
+      setFeedbackMessage({
+        type: "error",
+        text: "Please add your name, rating, and feedback.",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/submissions/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setFeedbackMessage({
+          type: "error",
+          text: data?.error || "Submission failed.",
+        });
+        return;
+      }
+      setFeedbackForm({ fullName: "", rating: 0, message: "" });
+      setFeedbackHover(0);
+      setFeedbackMessage({
+        type: "success",
+        text: "Thanks! Your feedback will appear after approval.",
+      });
+    } catch (error) {
+      setFeedbackMessage({
+        type: "error",
+        text: "Submission failed. Please try again.",
       });
     }
   };
@@ -559,7 +723,10 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
             {filteredProducts.map((product) => (
               <article
                 key={product.id}
-                className="product-card is-clickable"
+                id={`product-${product.id}`}
+                className={`product-card is-clickable ${
+                  initialProductId === product.id ? "is-highlight" : ""
+                }`}
                 role="button"
                 tabIndex={0}
                 onClick={() => openOrderModal(product)}
@@ -584,12 +751,29 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                 <span className="product-category">{product.category}</span>
                 <div className="product-content">
                   <h3 className="product-name">{product.name}</h3>
+                  {feedbackSummary[product.id]?.count ? (
+                    <div className="rating-summary">
+                      <span className="rating-stars">
+                        {renderStars(
+                          Math.round(feedbackSummary[product.id].avg),
+                        )}
+                      </span>
+                      <span className="rating-count">
+                        {feedbackSummary[product.id].avg.toFixed(1)} (
+                        {feedbackSummary[product.id].count})
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="rating-summary is-empty">
+                      No reviews yet
+                    </div>
+                  )}
                   <button
                     type="button"
                     className="ghost-button"
                     onClick={(event) => {
                       event.stopPropagation();
-                      setDescModal({ open: true, product });
+                      openDescModal(product);
                     }}
                   >
                     View Description
@@ -603,6 +787,16 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                     }}
                   >
                     Buy Now
+                  </button>
+                  <button
+                    type="button"
+                    className="light-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openFeedbackModal(product);
+                    }}
+                  >
+                    Add Feedback
                   </button>
                 </div>
                 <p className="product-price">{formatAmount(product.price)}</p>
@@ -1032,6 +1226,152 @@ export default function ShopClient({ products = [], paymentQrs = [] }) {
                       }}
                     >
                       {orderMessage.text}
+                    </p>
+                  ) : null}
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {feedbackModal.open && feedbackModal.product ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => setFeedbackModal({ open: false, product: null })}
+        >
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="feedback-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3 id="feedback-modal-title">
+                Feedback for {feedbackModal.product.name}
+              </h3>
+              <button
+                type="button"
+                className="light-button modal-close"
+                onClick={() => setFeedbackModal({ open: false, product: null })}
+              >
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="feedback-section">
+                <h4>Customer Feedback</h4>
+                <div className="feedback-link-row">
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() =>
+                      handleCopyLink(feedbackModal.product.id, "feedback")
+                    }
+                  >
+                    {copiedProductId === feedbackModal.product.id
+                      ? "Copied"
+                      : "Copy Feedback Link"}
+                  </button>
+                </div>
+                {(feedbackByProduct[feedbackModal.product.id] || []).length ? (
+                  <div className="feedback-list">
+                    {(feedbackByProduct[feedbackModal.product.id] || [])
+                      .slice(0, 5)
+                      .map((item) => (
+                        <article key={item.id} className="feedback-card">
+                          <div className="feedback-header">
+                            <span className="rating-stars">
+                              {renderStars(item.rating)}
+                            </span>
+                            <span className="table-cell-muted">
+                              {item.fullName}
+                            </span>
+                          </div>
+                          <p>{item.message}</p>
+                        </article>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="empty-state">No feedback yet.</p>
+                )}
+                <form className="feedback-form" onSubmit={handleFeedbackSubmit}>
+                  <label>
+                    Rating
+                    <div className="rating-input">
+                      {[1, 2, 3, 4, 5].map((value) => {
+                        const active =
+                          (feedbackHover || feedbackForm.rating) >= value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            className={active ? "is-active" : ""}
+                            onMouseEnter={() => setFeedbackHover(value)}
+                            onMouseLeave={() => setFeedbackHover(0)}
+                            onClick={() =>
+                              setFeedbackForm((prev) => ({
+                                ...prev,
+                                rating: value,
+                              }))
+                            }
+                            aria-label={`${value} star${value > 1 ? "s" : ""}`}
+                          >
+                            {FILLED_STAR}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </label>
+                  <label>
+                    Full Name
+                    <input
+                      type="text"
+                      value={feedbackForm.fullName}
+                      onChange={(event) =>
+                        setFeedbackForm((prev) => ({
+                          ...prev,
+                          fullName: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                  </label>
+                  <label>
+                    Feedback
+                    <textarea
+                      rows="3"
+                      value={feedbackForm.message}
+                      onChange={(event) =>
+                        setFeedbackForm((prev) => ({
+                          ...prev,
+                          message: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                  </label>
+                  <button
+                    className="primary-button"
+                    type="submit"
+                    disabled={
+                      !feedbackForm.fullName.trim() ||
+                      !feedbackForm.message.trim() ||
+                      !feedbackForm.rating
+                    }
+                  >
+                    Submit Feedback
+                  </button>
+                  {feedbackMessage ? (
+                    <p
+                      className="feedback-message"
+                      style={{
+                        color:
+                          feedbackMessage.type === "error" ? "#a33" : "#2a3d31",
+                      }}
+                    >
+                      {feedbackMessage.text}
                     </p>
                   ) : null}
                 </form>
