@@ -498,11 +498,11 @@ export default function ShopClient({
 
   const handleFeedbackSubmit = async (event) => {
     event.preventDefault();
-    if (!descModal.product) {
+    if (!feedbackModal.product) {
       return;
     }
     const payload = {
-      productId: descModal.product.id,
+      productId: feedbackModal.product.id,
       fullName: String(feedbackForm.fullName || "").trim(),
       rating: Number(feedbackForm.rating),
       message: String(feedbackForm.message || "").trim(),
@@ -536,6 +536,11 @@ export default function ShopClient({
         type: "success",
         text: "Thanks! Your feedback will appear after approval.",
       });
+      window.alert("Feedback submitted! Thank you.");
+      window.setTimeout(() => {
+        setFeedbackModal({ open: false, product: null });
+        setFeedbackMessage(null);
+      }, 900);
     } catch (error) {
       setFeedbackMessage({
         type: "error",
