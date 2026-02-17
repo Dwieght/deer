@@ -14,6 +14,21 @@ function formatAmount(amount) {
   }).format(amount);
 }
 
+function formatDate(dateValue) {
+  if (!dateValue) {
+    return "—";
+  }
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) {
+    return String(dateValue);
+  }
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 function extractDriveFileId(url) {
   if (!url || !url.includes("drive.google.com")) {
     return "";
@@ -135,6 +150,11 @@ export default function ShopClient({
   const [showQrCodes, setShowQrCodes] = useState(false);
   const [copiedProductId, setCopiedProductId] = useState("");
   const hasOpenedRef = useRef(false);
+  const [trackModal, setTrackModal] = useState(false);
+  const [trackId, setTrackId] = useState("");
+  const [trackResult, setTrackResult] = useState(null);
+  const [trackMessage, setTrackMessage] = useState(null);
+  const [trackLoading, setTrackLoading] = useState(false);
 
   const categories = useMemo(() => {
     const unique = new Set();
@@ -287,6 +307,24 @@ export default function ShopClient({
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [feedbackModal.open]);
+
+  useEffect(() => {
+    if (!trackModal) {
+      return undefined;
+    }
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKey = (event) => {
+      if (event.key === "Escape") {
+        setTrackModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [trackModal]);
 
   const openOrderModal = (product) => {
     setOrderForm({
@@ -496,6 +534,41 @@ export default function ShopClient({
     }
   };
 
+  const handleTrackSubmit = async (event) => {
+    event.preventDefault();
+    const value = String(trackId || "").trim();
+    if (!value) {
+      setTrackMessage({ type: "error", text: "Please enter your Order ID." });
+      setTrackResult(null);
+      return;
+    }
+    setTrackLoading(true);
+    setTrackMessage(null);
+    setTrackResult(null);
+    try {
+      const response = await fetch(
+        `/api/orders?orderId=${encodeURIComponent(value)}`,
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        setTrackMessage({
+          type: "error",
+          text: data?.error || "Order not found.",
+        });
+        setTrackLoading(false);
+        return;
+      }
+      setTrackResult(data.order);
+      setTrackLoading(false);
+    } catch (error) {
+      setTrackMessage({
+        type: "error",
+        text: "Lookup failed. Please try again.",
+      });
+      setTrackLoading(false);
+    }
+  };
+
   const handleFeedbackSubmit = async (event) => {
     event.preventDefault();
     if (!feedbackModal.product) {
@@ -683,8 +756,35 @@ export default function ShopClient({
               >
                 {showQrCodes ? "Hide QR Codes" : "Show QR Codes"}
               </button>
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => {
+                  setTrackId("");
+                  setTrackResult(null);
+                  setTrackMessage(null);
+                  setTrackModal(true);
+                }}
+              >
+                📦 Track Order
+              </button>
             </div>
-          ) : null}
+          ) : (
+            <div className="action-row">
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => {
+                  setTrackId("");
+                  setTrackResult(null);
+                  setTrackMessage(null);
+                  setTrackModal(true);
+                }}
+              >
+                📦 Track Order
+              </button>
+            </div>
+          )}
           <div className="shop-controls">
             <div className="shop-search">
               <label htmlFor="shop-search" className="table-cell-muted">
@@ -844,6 +944,7 @@ export default function ShopClient({
           </section>
         ) : null}
       </main>
+
       {descModal.open && descModal.product ? (
         <div
           className="modal-overlay"
@@ -904,6 +1005,7 @@ export default function ShopClient({
           </div>
         </div>
       ) : null}
+
       {orderModal.open && orderModal.product ? (
         <div
           className="modal-overlay"
@@ -1239,6 +1341,7 @@ export default function ShopClient({
           </div>
         </div>
       ) : null}
+
       {feedbackModal.open && feedbackModal.product ? (
         <div
           className="modal-overlay"
@@ -1385,6 +1488,130 @@ export default function ShopClient({
           </div>
         </div>
       ) : null}
+
+      {trackModal && (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => setTrackModal(false)}
+        >
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="track-modal-title"
+            onClick={(event) => event.stopPropagation()}
+            style={{ maxWidth: 420 }}
+          >
+            <div className="modal-header">
+              <h3 id="track-modal-title">Track Your Order</h3>
+              <button
+                type="button"
+                className="light-button modal-close"
+                onClick={() => setTrackModal(false)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              <form
+                style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}
+                onSubmit={handleTrackSubmit}
+              >
+                <input
+                  type="text"
+                  value={trackId}
+                  onChange={(e) => setTrackId(e.target.value)}
+                  placeholder="Order ID (e.g. 21bd4)"
+                  aria-label="Order ID"
+                  style={{ flex: 1, minWidth: 0 }}
+                />
+                <button
+                  className="secondary-button"
+                  type="submit"
+                  disabled={trackLoading}
+                  style={{ flexShrink: 0 }}
+                >
+                  {trackLoading ? "…" : "Track"}
+                </button>
+              </form>
+
+              {trackMessage && (
+                <p
+                  className="form-message"
+                  style={{
+                    color: trackMessage.type === "error" ? "#a33" : "#2a3d31",
+                    marginBottom: "0.75rem",
+                  }}
+                >
+                  {trackMessage.text}
+                </p>
+              )}
+
+              {trackResult && (
+                <div
+                  className="modal-card"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 0,
+                    padding: 0,
+                    overflow: "hidden",
+                  }}
+                >
+                  {[
+                    [
+                      "Order ID",
+                      <span className="order-id-chip">
+                        {trackResult.id.slice(-5)}
+                      </span>,
+                    ],
+                    [
+                      "Status",
+                      <span className="badge">{trackResult.status}</span>,
+                    ],
+                    [
+                      "Update",
+                      trackResult.statusNote || "No update yet.",
+                    ],
+                    ["Product", trackResult.productName || "—"],
+                    ["Qty", trackResult.quantity],
+                    // ["Total", formatAmount(trackResult.total)],
+                    ["Placed", formatDate(trackResult.createdAt)],
+                  ].map(([label, value], i) => (
+                    <div
+                      key={label}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "0.55rem 0.9rem",
+                        background: i % 2 === 1 ? "#faf8f5" : "#fff",
+                        borderBottom: i < 5 ? "1px solid #f0ece6" : "none",
+                        fontSize: "0.88rem",
+                      }}
+                    >
+                      <span
+                        className="table-cell-muted"
+                        style={{
+                          fontSize: "0.78rem",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.03em",
+                        }}
+                      >
+                        {label}
+                      </span>
+                      <span style={{ fontWeight: 500, color: "#222" }}>
+                        {value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

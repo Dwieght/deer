@@ -1230,6 +1230,52 @@ textarea {
   min-width: 220px;
 }
 
+.order-tracker {
+  padding: 10px 6vw 26px;
+  display: flex;
+  justify-content: center;
+}
+
+.order-tracker-card {
+  width: min(900px, 100%);
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--soft-shadow);
+  display: grid;
+  gap: 12px;
+  text-align: center;
+}
+
+.order-tracker-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.order-tracker-form input {
+  min-width: min(320px, 100%);
+}
+
+.order-tracker-result {
+  display: grid;
+  gap: 12px 24px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  text-align: left;
+}
+
+.order-id-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(184, 210, 186, 0.35);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
 .shop-grid {
   padding: 20px 6vw 90px;
   display: grid;

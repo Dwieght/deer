@@ -104,6 +104,9 @@ export default async function OrdersPage({ searchParams }) {
                             </p>
                             <p className="table-cell-muted">Label: {order.addressLabel}</p>
                             <p className="table-cell-muted">Status: {order.status}</p>
+                            {order.statusNote ? (
+                              <p className="table-cell-muted">Status Note: {order.statusNote}</p>
+                            ) : null}
                             {order.size ? (
                               <p className="table-cell-muted">Size: {order.size}</p>
                             ) : null}
@@ -192,6 +195,14 @@ export default async function OrdersPage({ searchParams }) {
                                     </option>
                                   ))}
                                 </select>
+                              </label>
+                              <label>
+                                Status Note
+                                <textarea
+                                  name="statusNote"
+                                  rows="2"
+                                  defaultValue={order.statusNote || ""}
+                                ></textarea>
                               </label>
                               <label>
                                 Quantity

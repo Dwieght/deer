@@ -166,6 +166,7 @@ model Order {
   quantity     Int
   total        Float
   status       OrderStatus @default(PENDING)
+  statusNote   String?
   productId    String      @db.ObjectId
   product      Product     @relation(fields: [productId], references: [id])
   createdAt    DateTime    @default(now())

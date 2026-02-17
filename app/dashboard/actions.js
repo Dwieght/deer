@@ -591,6 +591,7 @@ export async function updateOrder(_prevState, formData) {
   const addressLabel = String(formData.get("addressLabel") || "").trim();
   const size = String(formData.get("size") || "").trim();
   const gcashReference = String(formData.get("gcashReference") || "").trim();
+  const statusNote = String(formData.get("statusNote") || "").trim();
   const status = String(formData.get("status") || "").trim().toUpperCase();
   const quantityRaw = formData.get("quantity");
   if (!id || !customerName || !phone || !ORDER_STATUSES.has(status)) {
@@ -632,6 +633,7 @@ export async function updateOrder(_prevState, formData) {
         size: size || null,
         gcashReference: gcashReference || null,
         status,
+        statusNote: statusNote || null,
         quantity,
         total,
       },

@@ -87,3 +87,46 @@ export async function POST(request) {
     return NextResponse.json({ error: "Database error" }, { status: 500 });
   }
 }
+
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const rawId = String(searchParams.get("orderId") || "").trim();
+  if (!rawId) {
+    return NextResponse.json({ error: "Order ID is required." }, { status: 400 });
+  }
+
+  try {
+    let order = null;
+    if (rawId.length >= 24) {
+      order = await prisma.order.findUnique({
+        where: { id: rawId },
+        include: { product: true },
+      });
+    } else {
+      const recent = await prisma.order.findMany({
+        take: 200,
+        orderBy: { createdAt: "desc" },
+        include: { product: true },
+      });
+      order = recent.find((item) => item.id && item.id.endsWith(rawId)) || null;
+    }
+    if (!order) {
+      return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      order: {
+        id: order.id,
+        status: order.status,
+        statusNote: order.statusNote || null,
+        productName: order.product?.name || null,
+        quantity: order.quantity,
+        total: order.total,
+        createdAt: order.createdAt,
+      },
+    });
+  } catch (error) {
+    return NextResponse.json({ error: "Database error" }, { status: 500 });
+  }
+}
