@@ -129,6 +129,25 @@ export default function ShopClient({
   });
   const [feedbackHover, setFeedbackHover] = useState(0);
   const [feedbackMessage, setFeedbackMessage] = useState(null);
+  const [cartItems, setCartItems] = useState([]);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutForm, setCheckoutForm] = useState({
+    customerName: "",
+    phone: "",
+    region: "",
+    regionOther: "",
+    province: "",
+    city: "",
+    barangay: "",
+    postalCode: "",
+    streetName: "",
+    building: "",
+    houseNo: "",
+    addressLabel: "home",
+    gcashReference: "",
+  });
+  const [checkoutMessage, setCheckoutMessage] = useState(null);
   const [orderForm, setOrderForm] = useState({
     customerName: "",
     phone: "",
@@ -326,6 +345,17 @@ export default function ShopClient({
     };
   }, [trackModal]);
 
+  useEffect(() => {
+    if (!cartOpen && !checkoutOpen) {
+      return undefined;
+    }
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [cartOpen, checkoutOpen]);
+
   const openOrderModal = (product) => {
     setOrderForm({
       customerName: "",
@@ -354,6 +384,59 @@ export default function ShopClient({
       imageIndex: 0,
     });
   };
+
+  const addToCart = (product) => {
+    setCartItems((prev) => {
+      const defaultSize =
+        product.sizes && product.sizes.length ? product.sizes[0] : "";
+      const existingIndex = prev.findIndex(
+        (item) =>
+          item.productId === product.id &&
+          (item.size || "") === (defaultSize || ""),
+      );
+      if (existingIndex >= 0) {
+        return prev.map((item, index) =>
+          index === existingIndex
+            ? { ...item, quantity: item.quantity + 1 }
+            : item,
+        );
+      }
+      return [
+        ...prev,
+        {
+          productId: product.id,
+          name: product.name,
+          price: product.price,
+          imageUrl: product.imageUrl,
+          sizes: product.sizes || [],
+          size: defaultSize,
+          quantity: 1,
+        },
+      ];
+    });
+    setCartOpen(true);
+  };
+
+  const updateCartItem = (productId, updates) => {
+    setCartItems((prev) =>
+      prev.map((item) =>
+        item.productId === productId ? { ...item, ...updates } : item,
+      ),
+    );
+  };
+
+  const removeCartItem = (productId) => {
+    setCartItems((prev) => prev.filter((item) => item.productId !== productId));
+  };
+
+  const cartTotal = useMemo(
+    () =>
+      cartItems.reduce(
+        (sum, item) => sum + item.price * Math.max(1, item.quantity || 1),
+        0,
+      ),
+    [cartItems],
+  );
 
   const openDescModal = (product) => {
     setDescModal({ open: true, product });
@@ -566,6 +649,127 @@ export default function ShopClient({
         text: "Lookup failed. Please try again.",
       });
       setTrackLoading(false);
+    }
+  };
+
+  const handleCheckoutSubmit = async (event) => {
+    event.preventDefault();
+    if (!cartItems.length) {
+      setCheckoutMessage({ type: "error", text: "Your cart is empty." });
+      return;
+    }
+    const payloadBase = {
+      customerName: String(checkoutForm.customerName || "").trim(),
+      phone: String(checkoutForm.phone || "").trim(),
+      region:
+        checkoutForm.region === "Other"
+          ? String(checkoutForm.regionOther || "").trim()
+          : String(checkoutForm.region || "").trim(),
+      province: String(checkoutForm.province || "").trim(),
+      city: String(checkoutForm.city || "").trim(),
+      barangay: String(checkoutForm.barangay || "").trim(),
+      postalCode: String(checkoutForm.postalCode || "").trim(),
+      streetName: String(checkoutForm.streetName || "").trim(),
+      building: String(checkoutForm.building || "").trim(),
+      houseNo: String(checkoutForm.houseNo || "").trim(),
+      addressLabel: String(checkoutForm.addressLabel || "").trim(),
+      gcashReference: String(checkoutForm.gcashReference || "").trim(),
+    };
+
+    if (!payloadBase.customerName || !payloadBase.phone) {
+      setCheckoutMessage({
+        type: "error",
+        text: "Please add your name and phone number.",
+      });
+      return;
+    }
+    if (!/^\d{11,12}$/.test(payloadBase.phone)) {
+      setCheckoutMessage({
+        type: "error",
+        text: "Phone number must be 11 or 12 digits.",
+      });
+      return;
+    }
+    if (!payloadBase.region) {
+      setCheckoutMessage({
+        type: "error",
+        text: "Please select a region.",
+      });
+      return;
+    }
+    if (!payloadBase.province || !payloadBase.city || !payloadBase.barangay) {
+      setCheckoutMessage({
+        type: "error",
+        text: "Please complete the address fields.",
+      });
+      return;
+    }
+    if (
+      !payloadBase.postalCode ||
+      !payloadBase.streetName ||
+      !payloadBase.houseNo ||
+      !payloadBase.addressLabel
+    ) {
+      setCheckoutMessage({
+        type: "error",
+        text: "Please complete the address fields.",
+      });
+      return;
+    }
+    if (!payloadBase.gcashReference) {
+      setCheckoutMessage({
+        type: "error",
+        text: "GCash reference number is required.",
+      });
+      return;
+    }
+
+    setCheckoutMessage(null);
+    try {
+      for (const item of cartItems) {
+        const response = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...payloadBase,
+            productId: item.productId,
+            quantity: item.quantity,
+            size: item.size || "",
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.error || "Order failed.");
+        }
+      }
+      setCheckoutMessage({
+        type: "success",
+        text: "Order submitted! We will confirm shortly.",
+      });
+      window.alert("Order submitted! We will contact you to confirm.");
+      setCartItems([]);
+      setCheckoutOpen(false);
+      setCartOpen(false);
+      setCheckoutForm({
+        customerName: "",
+        phone: "",
+        region: "",
+        regionOther: "",
+        province: "",
+        city: "",
+        barangay: "",
+        postalCode: "",
+        streetName: "",
+        building: "",
+        houseNo: "",
+        addressLabel: "home",
+        gcashReference: "",
+      });
+    } catch (error) {
+      setCheckoutMessage({
+        type: "error",
+        text: error?.message || "Order failed. Please try again.",
+      });
     }
   };
 
@@ -892,6 +1096,16 @@ export default function ShopClient({
                     }}
                   >
                     Buy Now
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      addToCart(product);
+                    }}
+                  >
+                    Add to Cart
                   </button>
                   <button
                     type="button"
@@ -1298,6 +1512,13 @@ export default function ShopClient({
                       >
                         {showQrCodes ? "Hide QR Codes" : "Show QR Codes"}
                       </button>
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => setCartOpen(true)}
+                      >
+                        Cart ({cartItems.length})
+                      </button>
                     </div>
                   ) : null}
                   {showQrCodes && paymentQrs.length ? (
@@ -1337,6 +1558,375 @@ export default function ShopClient({
                   ) : null}
                 </form>
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {cartOpen ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => setCartOpen(false)}
+        >
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cart-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3 id="cart-modal-title">Your Cart</h3>
+              <button
+                type="button"
+                className="light-button modal-close"
+                onClick={() => setCartOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              {cartItems.length === 0 ? (
+                <p className="empty-state">Your cart is empty.</p>
+              ) : (
+                <>
+                  <div className="cart-list">
+                    {cartItems.map((item) => (
+                      <div key={item.productId} className="cart-item">
+                        <img
+                          src={getProductImageUrl(item.imageUrl)}
+                          alt={item.name}
+                          className="cart-image"
+                        />
+                        <div className="cart-info">
+                          <h4>{item.name}</h4>
+                          <p className="table-cell-muted">
+                            {formatAmount(item.price)}
+                          </p>
+                          {item.sizes?.length ? (
+                            <select
+                              value={item.size}
+                              onChange={(event) =>
+                                updateCartItem(item.productId, {
+                                  size: event.target.value,
+                                })
+                              }
+                            >
+                              {item.sizes.map((size) => (
+                                <option key={size} value={size}>
+                                  {size}
+                                </option>
+                              ))}
+                            </select>
+                          ) : null}
+                          <div className="cart-qty">
+                            <button
+                              type="button"
+                              className="ghost-button"
+                              onClick={() =>
+                                updateCartItem(item.productId, {
+                                  quantity: Math.max(1, item.quantity - 1),
+                                })
+                              }
+                            >
+                              -
+                            </button>
+                            <span>{item.quantity}</span>
+                            <button
+                              type="button"
+                              className="ghost-button"
+                              onClick={() =>
+                                updateCartItem(item.productId, {
+                                  quantity: item.quantity + 1,
+                                })
+                              }
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => removeCartItem(item.productId)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="cart-summary">
+                    <span>Total</span>
+                    <strong>{formatAmount(cartTotal)}</strong>
+                  </div>
+                  <div className="action-row">
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => {
+                        setCartOpen(false);
+                        setCheckoutOpen(true);
+                      }}
+                    >
+                      Proceed to Checkout
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {checkoutOpen ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => setCheckoutOpen(false)}
+        >
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="checkout-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3 id="checkout-modal-title">Checkout</h3>
+              <button
+                type="button"
+                className="light-button modal-close"
+                onClick={() => setCheckoutOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="checkout-summary">
+                {cartItems.map((item) => (
+                  <div key={item.productId} className="checkout-line">
+                    <span>
+                      {item.name} {item.size ? `(${item.size})` : ""} x
+                      {item.quantity}
+                    </span>
+                    <span>{formatAmount(item.price * item.quantity)}</span>
+                  </div>
+                ))}
+                <div className="checkout-total">
+                  <span>Total</span>
+                  <strong>{formatAmount(cartTotal)}</strong>
+                </div>
+              </div>
+              <form className="admin-form" onSubmit={handleCheckoutSubmit}>
+                <div className="form-note">
+                  Note: At the moment we can only accept orders within the
+                  Philippines.
+                </div>
+                <label>
+                  Full Name
+                  <input
+                    type="text"
+                    value={checkoutForm.customerName}
+                    onChange={(event) =>
+                      setCheckoutForm((prev) => ({
+                        ...prev,
+                        customerName: event.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </label>
+                <label>
+                  Phone
+                  <input
+                    type="text"
+                    value={checkoutForm.phone}
+                    onChange={(event) =>
+                      setCheckoutForm((prev) => ({
+                        ...prev,
+                        phone: event.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </label>
+                <label>
+                  Region
+                  <select
+                    value={checkoutForm.region}
+                    onChange={(event) =>
+                      setCheckoutForm((prev) => ({
+                        ...prev,
+                        region: event.target.value,
+                      }))
+                    }
+                    required
+                  >
+                    <option value="">Select region</option>
+                    {REGION_OPTIONS.map((region) => (
+                      <option key={region} value={region}>
+                        {region}
+                      </option>
+                    ))}
+                    <option value="Other">Other (outside PH)</option>
+                  </select>
+                </label>
+                {checkoutForm.region === "Other" ? (
+                  <label>
+                    Region (Other)
+                    <input
+                      type="text"
+                      value={checkoutForm.regionOther}
+                      onChange={(event) =>
+                        setCheckoutForm((prev) => ({
+                          ...prev,
+                          regionOther: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                ) : null}
+                <label>
+                  Province
+                  <input
+                    type="text"
+                    value={checkoutForm.province}
+                    onChange={(event) =>
+                      setCheckoutForm((prev) => ({
+                        ...prev,
+                        province: event.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </label>
+                <label>
+                  City
+                  <input
+                    type="text"
+                    value={checkoutForm.city}
+                    onChange={(event) =>
+                      setCheckoutForm((prev) => ({
+                        ...prev,
+                        city: event.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </label>
+                <label>
+                  Barangay
+                  <input
+                    type="text"
+                    value={checkoutForm.barangay}
+                    onChange={(event) =>
+                      setCheckoutForm((prev) => ({
+                        ...prev,
+                        barangay: event.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </label>
+                <label>
+                  Postal Code
+                  <input
+                    type="text"
+                    value={checkoutForm.postalCode}
+                    onChange={(event) =>
+                      setCheckoutForm((prev) => ({
+                        ...prev,
+                        postalCode: event.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </label>
+                <label>
+                  Street Name
+                  <input
+                    type="text"
+                    value={checkoutForm.streetName}
+                    onChange={(event) =>
+                      setCheckoutForm((prev) => ({
+                        ...prev,
+                        streetName: event.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </label>
+                <label>
+                  Building
+                  <input
+                    type="text"
+                    value={checkoutForm.building}
+                    onChange={(event) =>
+                      setCheckoutForm((prev) => ({
+                        ...prev,
+                        building: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  House No.
+                  <input
+                    type="text"
+                    value={checkoutForm.houseNo}
+                    onChange={(event) =>
+                      setCheckoutForm((prev) => ({
+                        ...prev,
+                        houseNo: event.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </label>
+                <label>
+                  Address Label
+                  <select
+                    value={checkoutForm.addressLabel}
+                    onChange={(event) =>
+                      setCheckoutForm((prev) => ({
+                        ...prev,
+                        addressLabel: event.target.value,
+                      }))
+                    }
+                    required
+                  >
+                    <option value="home">Home</option>
+                    <option value="work">Work</option>
+                  </select>
+                </label>
+                <label>
+                  GCash Reference
+                  <input
+                    type="text"
+                    value={checkoutForm.gcashReference}
+                    onChange={(event) =>
+                      setCheckoutForm((prev) => ({
+                        ...prev,
+                        gcashReference: event.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </label>
+                <button className="primary-button" type="submit">
+                  Place Order
+                </button>
+                {checkoutMessage ? (
+                  <p
+                    className="form-message"
+                    style={{
+                      color:
+                        checkoutMessage.type === "error" ? "#a33" : "#2a3d31",
+                    }}
+                  >
+                    {checkoutMessage.text}
+                  </p>
+                ) : null}
+              </form>
             </div>
           </div>
         </div>
@@ -1570,10 +2160,7 @@ export default function ShopClient({
                       "Status",
                       <span className="badge">{trackResult.status}</span>,
                     ],
-                    [
-                      "Update",
-                      trackResult.statusNote || "No update yet.",
-                    ],
+                    ["Update", trackResult.statusNote || "No update yet."],
                     ["Product", trackResult.productName || "—"],
                     ["Qty", trackResult.quantity],
                     // ["Total", formatAmount(trackResult.total)],
