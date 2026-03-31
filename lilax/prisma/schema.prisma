@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("LilaxUser")
+}
+
+model Product {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  slug        String   @unique
+  category    String
+  description String
+  price       Float
+  stock       Int      @default(0)
+  imageUrl    String
+  gallery     String[]
+  featured    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("LilaxProduct")
+}
+
+model Order {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  orderCode    String      @unique
+  customerName String
+  email        String?
+  phone        String
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  province     String
+  postalCode   String
+  country      String      @default("Philippines")
+  notes        String?
+  status       OrderStatus @default(PENDING)
+  statusNote   String?
+  items        Json
+  subtotal     Float
+  shippingFee  Float       @default(0)
+  total        Float
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("LilaxOrder")
+}
