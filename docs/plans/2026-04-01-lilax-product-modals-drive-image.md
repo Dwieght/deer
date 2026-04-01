@@ -241,7 +241,7 @@ In rendering files:
 
 - normalize `product.imageUrl` before passing to `next/image`
 - normalize gallery images before mapping them
-- do the same in the storefront product image renderers
+- do the same in the landing page product image renderers, flash sale cards, and quick-view gallery
 
 This protects both newly saved data and previously stored data.
 
@@ -433,6 +433,9 @@ Check:
 - table thumbnail renders
 - modal main image renders
 - gallery thumbnails render if included
+- landing page product cards render
+- flash sale cards render
+- quick-view main image and thumbnails render
 
 **Step 3: Verify success feedback**
 
