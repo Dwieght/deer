@@ -53,7 +53,9 @@ Given the current server-action redirect flow, modal closing happens naturally a
   - product table thumbnail
   - product `View` modal preview
   - gallery thumbnails in the product modal
-  - optionally the storefront product cards, since the same product data is reused there
+  - landing page product cards
+  - flash sale cards on the landing page
+  - landing page quick-view images and thumbnails
 
 ## Approaches Considered
 
@@ -87,7 +89,7 @@ Pros:
 
 Cons:
 
-- storefront can still break on the same Drive URLs
+- landing page and quick-view images can still break on the same Drive URLs
 - normalization logic becomes duplicated or inconsistent
 
 ### 3. Save-time normalization only
