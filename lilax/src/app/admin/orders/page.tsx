@@ -13,7 +13,7 @@ function formatMoney(value: number) {
   return new Intl.NumberFormat("en-PH", {
     style: "currency",
     currency: "PHP",
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   }).format(value);
 }
 
@@ -22,19 +22,19 @@ function readParam(value: string | string[] | undefined) {
 }
 
 export default async function AdminOrdersPage({
-  searchParams
+  searchParams,
 }: {
   searchParams?: SearchParams;
 }) {
   const orders = await prisma.order
     .findMany({
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     })
     .catch(() => []);
 
   const totalOrders = orders.length;
   const pendingOrders = orders.filter((order) =>
-    ["PENDING", "PAID", "PROCESSING"].includes(order.status)
+    ["PENDING", "PAID", "PROCESSING"].includes(order.status),
   ).length;
   const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
   const flashType = readParam(searchParams?.type);
@@ -46,14 +46,19 @@ export default async function AdminOrdersPage({
         <div>
           <span className="kicker">Orders</span>
           <h1>Manage orders</h1>
-          <p>Review checkout requests, update statuses, and keep fulfillment notes in one place.</p>
+          <p>
+            Review checkout requests, update statuses, and keep fulfillment
+            notes in one place.
+          </p>
         </div>
       </div>
 
       {flashText ? (
         <>
           <AdminFlashAlert type={flashType} text={flashText} scope="orders" />
-          <div className={`flash-message ${flashType === "error" ? "is-error" : "is-success"}`}>
+          <div
+            className={`flash-message ${flashType === "error" ? "is-error" : "is-success"}`}
+          >
             {flashText}
           </div>
         </>

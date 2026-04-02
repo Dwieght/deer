@@ -15,18 +15,20 @@ function readParam(value: string | string[] | undefined) {
 }
 
 export default async function AdminProductsPage({
-  searchParams
+  searchParams,
 }: {
   searchParams?: SearchParams;
 }) {
   const products = await prisma.product
     .findMany({
-      orderBy: [{ featured: "desc" }, { createdAt: "desc" }]
+      orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
     })
     .catch(() => []);
 
   const totalProducts = products.length;
-  const featuredProducts = products.filter((product) => product.featured).length;
+  const featuredProducts = products.filter(
+    (product) => product.featured,
+  ).length;
   const outOfStock = products.filter((product) => product.stock === 0).length;
   const flashType = readParam(searchParams?.type);
   const flashText = readParam(searchParams?.text);
@@ -37,7 +39,10 @@ export default async function AdminProductsPage({
         <div>
           <span className="kicker">Catalog</span>
           <h1>Manage products</h1>
-          <p>Create, edit, activate, and retire products without touching Deer data.</p>
+          <p>
+            Create, edit, activate, and retire products without touching Deer
+            data.
+          </p>
         </div>
         <div className="admin-page-actions">
           <ProductCreateModal />
@@ -47,7 +52,9 @@ export default async function AdminProductsPage({
       {flashText ? (
         <>
           <AdminFlashAlert type={flashType} text={flashText} scope="products" />
-          <div className={`flash-message ${flashType === "error" ? "is-error" : "is-success"}`}>
+          <div
+            className={`flash-message ${flashType === "error" ? "is-error" : "is-success"}`}
+          >
             {flashText}
           </div>
         </>

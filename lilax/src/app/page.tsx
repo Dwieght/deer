@@ -6,14 +6,15 @@ import StorefrontClient from "./storefront-client";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Lilax Storefront",
-  description: "Shopee-inspired Lilax storefront built with Next.js App Router and Prisma."
+  description:
+    "Shopee-inspired Lilax storefront built with Next.js App Router and Prisma.",
 };
 
 async function getProducts() {
   try {
     return await prisma.product.findMany({
       where: { isActive: true },
-      orderBy: [{ featured: "desc" }, { createdAt: "desc" }]
+      orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
     });
   } catch {
     return [];
@@ -27,7 +28,7 @@ export default async function HomePage() {
   const safeProducts = products.map((product) => {
     const imageUrl = normalizeImageUrl(product.imageUrl);
     const gallery = normalizeImageList(
-      product.gallery?.length ? product.gallery : [product.imageUrl]
+      product.gallery?.length ? product.gallery : [product.imageUrl],
     );
 
     return {
@@ -41,7 +42,7 @@ export default async function HomePage() {
       imageUrl,
       gallery: gallery.length ? gallery : [imageUrl],
       featured: product.featured,
-      isActive: product.isActive
+      isActive: product.isActive,
     };
   });
 
@@ -50,7 +51,7 @@ export default async function HomePage() {
       products={safeProducts}
       heroCountdown={{
         initialTimeLeftMs: heroTargetDate.getTime() - now.getTime(),
-        targetDateIso: heroTargetDate.toISOString()
+        targetDateIso: heroTargetDate.toISOString(),
       }}
     />
   );

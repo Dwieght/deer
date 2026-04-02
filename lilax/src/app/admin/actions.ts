@@ -14,7 +14,7 @@ const ORDER_STATUSES = new Set([
   "PROCESSING",
   "SHIPPED",
   "DELIVERED",
-  "CANCELLED"
+  "CANCELLED",
 ]);
 
 function slugify(value: string) {
@@ -47,7 +47,9 @@ function parseChecked(formData: FormData, key: string) {
 }
 
 function normalizeEmail(value: FormDataEntryValue | null) {
-  return String(value || "").trim().toLowerCase();
+  return String(value || "")
+    .trim()
+    .toLowerCase();
 }
 
 function isValidEmail(value: string) {
@@ -64,7 +66,11 @@ function revalidateStore() {
   revalidatePath("/signup");
 }
 
-function redirectWithMessage(path: string, type: "success" | "error", text: string): never {
+function redirectWithMessage(
+  path: string,
+  type: "success" | "error",
+  text: string,
+): never {
   const params = new URLSearchParams({ type, text });
   redirect(`${path}?${params.toString()}`);
 }
@@ -75,7 +81,9 @@ export async function createProduct(formData: FormData) {
   const name = String(formData.get("name") || "").trim();
   const category = String(formData.get("category") || "").trim();
   const description = String(formData.get("description") || "").trim();
-  const imageUrl = normalizeImageUrl(String(formData.get("imageUrl") || "").trim());
+  const imageUrl = normalizeImageUrl(
+    String(formData.get("imageUrl") || "").trim(),
+  );
   const slugInput = String(formData.get("slug") || "").trim();
   const slug = slugify(slugInput || name);
   const price = parsePrice(formData.get("price"));
@@ -85,11 +93,19 @@ export async function createProduct(formData: FormData) {
   const isActive = parseChecked(formData, "isActive");
 
   if (!name || !category || !description || !imageUrl || !slug) {
-    redirectWithMessage("/admin/products", "error", "All product fields are required.");
+    redirectWithMessage(
+      "/admin/products",
+      "error",
+      "All product fields are required.",
+    );
   }
 
   if (!Number.isFinite(price) || !Number.isFinite(stock)) {
-    redirectWithMessage("/admin/products", "error", "Price and stock must be valid values.");
+    redirectWithMessage(
+      "/admin/products",
+      "error",
+      "Price and stock must be valid values.",
+    );
   }
 
   try {
@@ -104,11 +120,15 @@ export async function createProduct(formData: FormData) {
         price,
         stock,
         featured,
-        isActive
-      }
+        isActive,
+      },
     });
   } catch {
-    redirectWithMessage("/admin/products", "error", "Could not create product. Check if the slug is already used.");
+    redirectWithMessage(
+      "/admin/products",
+      "error",
+      "Could not create product. Check if the slug is already used.",
+    );
   }
 
   revalidateStore();
@@ -122,7 +142,9 @@ export async function updateProduct(formData: FormData) {
   const name = String(formData.get("name") || "").trim();
   const category = String(formData.get("category") || "").trim();
   const description = String(formData.get("description") || "").trim();
-  const imageUrl = normalizeImageUrl(String(formData.get("imageUrl") || "").trim());
+  const imageUrl = normalizeImageUrl(
+    String(formData.get("imageUrl") || "").trim(),
+  );
   const slugInput = String(formData.get("slug") || "").trim();
   const slug = slugify(slugInput || name);
   const price = parsePrice(formData.get("price"));
@@ -132,11 +154,19 @@ export async function updateProduct(formData: FormData) {
   const isActive = parseChecked(formData, "isActive");
 
   if (!id || !name || !category || !description || !imageUrl || !slug) {
-    redirectWithMessage("/admin/products", "error", "Product update is missing required data.");
+    redirectWithMessage(
+      "/admin/products",
+      "error",
+      "Product update is missing required data.",
+    );
   }
 
   if (!Number.isFinite(price) || !Number.isFinite(stock)) {
-    redirectWithMessage("/admin/products", "error", "Price and stock must be valid values.");
+    redirectWithMessage(
+      "/admin/products",
+      "error",
+      "Price and stock must be valid values.",
+    );
   }
 
   try {
@@ -152,11 +182,15 @@ export async function updateProduct(formData: FormData) {
         price,
         stock,
         featured,
-        isActive
-      }
+        isActive,
+      },
     });
   } catch {
-    redirectWithMessage("/admin/products", "error", "Could not update product.");
+    redirectWithMessage(
+      "/admin/products",
+      "error",
+      "Could not update product.",
+    );
   }
 
   revalidateStore();
@@ -174,7 +208,11 @@ export async function deleteProduct(formData: FormData) {
   try {
     await prisma.product.delete({ where: { id } });
   } catch {
-    redirectWithMessage("/admin/products", "error", "Could not delete product.");
+    redirectWithMessage(
+      "/admin/products",
+      "error",
+      "Could not delete product.",
+    );
   }
 
   revalidateStore();
@@ -203,8 +241,8 @@ export async function updateOrder(formData: FormData) {
           | "SHIPPED"
           | "DELIVERED"
           | "CANCELLED",
-        statusNote: statusNote || null
-      }
+        statusNote: statusNote || null,
+      },
     });
   } catch {
     redirectWithMessage("/admin/orders", "error", "Could not update order.");
@@ -240,7 +278,11 @@ export async function createUser(formData: FormData) {
   const confirmPassword = String(formData.get("confirmPassword") || "");
 
   if (!email || !isValidEmail(email) || !password) {
-    redirectWithMessage("/admin/users", "error", "A valid email and password are required.");
+    redirectWithMessage(
+      "/admin/users",
+      "error",
+      "A valid email and password are required.",
+    );
   }
 
   if (password !== confirmPassword) {
@@ -251,11 +293,15 @@ export async function createUser(formData: FormData) {
     await prisma.user.create({
       data: {
         email,
-        passwordHash: hashPassword(password)
-      }
+        passwordHash: hashPassword(password),
+      },
     });
   } catch {
-    redirectWithMessage("/admin/users", "error", "Could not create admin. Check if the email is already used.");
+    redirectWithMessage(
+      "/admin/users",
+      "error",
+      "Could not create admin. Check if the email is already used.",
+    );
   }
 
   revalidateStore();
@@ -271,7 +317,11 @@ export async function updateUser(formData: FormData) {
   const confirmPassword = String(formData.get("confirmPassword") || "");
 
   if (!id || !email || !isValidEmail(email)) {
-    redirectWithMessage("/admin/users", "error", "A valid admin email is required.");
+    redirectWithMessage(
+      "/admin/users",
+      "error",
+      "A valid admin email is required.",
+    );
   }
 
   if ((password || confirmPassword) && password !== confirmPassword) {
@@ -283,8 +333,8 @@ export async function updateUser(formData: FormData) {
       where: { id },
       data: {
         email,
-        ...(password ? { passwordHash: hashPassword(password) } : {})
-      }
+        ...(password ? { passwordHash: hashPassword(password) } : {}),
+      },
     });
   } catch {
     redirectWithMessage("/admin/users", "error", "Could not update admin.");
@@ -303,20 +353,32 @@ export async function deleteUser(formData: FormData) {
   }
 
   const targetUser = await prisma.user.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!targetUser) {
-    redirectWithMessage("/admin/users", "error", "Admin account was not found.");
+    redirectWithMessage(
+      "/admin/users",
+      "error",
+      "Admin account was not found.",
+    );
   }
 
   if (targetUser.email === session.email) {
-    redirectWithMessage("/admin/users", "error", "You cannot delete the current signed-in admin.");
+    redirectWithMessage(
+      "/admin/users",
+      "error",
+      "You cannot delete the current signed-in admin.",
+    );
   }
 
   const userCount = await prisma.user.count();
   if (userCount <= 1) {
-    redirectWithMessage("/admin/users", "error", "You cannot delete the last remaining admin.");
+    redirectWithMessage(
+      "/admin/users",
+      "error",
+      "You cannot delete the last remaining admin.",
+    );
   }
 
   try {
@@ -340,10 +402,14 @@ export async function approveCustomer(formData: FormData) {
   try {
     await prisma.customer.update({
       where: { id },
-      data: { status: "APPROVED" }
+      data: { status: "APPROVED" },
     });
   } catch {
-    redirectWithMessage("/admin/customers", "error", "Could not approve customer.");
+    redirectWithMessage(
+      "/admin/customers",
+      "error",
+      "Could not approve customer.",
+    );
   }
 
   revalidateStore();
@@ -361,10 +427,14 @@ export async function declineCustomer(formData: FormData) {
   try {
     await prisma.customer.update({
       where: { id },
-      data: { status: "DECLINED" }
+      data: { status: "DECLINED" },
     });
   } catch {
-    redirectWithMessage("/admin/customers", "error", "Could not decline customer.");
+    redirectWithMessage(
+      "/admin/customers",
+      "error",
+      "Could not decline customer.",
+    );
   }
 
   revalidateStore();
@@ -381,10 +451,14 @@ export async function deleteCustomer(formData: FormData) {
 
   try {
     await prisma.customer.delete({
-      where: { id }
+      where: { id },
     });
   } catch {
-    redirectWithMessage("/admin/customers", "error", "Could not delete customer.");
+    redirectWithMessage(
+      "/admin/customers",
+      "error",
+      "Could not delete customer.",
+    );
   }
 
   revalidateStore();
