@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { BLUR_DATA_URL, HERO_SLIDES } from "./data";
 import { ChevronLeftIcon, ChevronRightIcon } from "./icons";
 
@@ -10,10 +10,22 @@ function formatPart(value: number) {
   return String(Math.max(0, value)).padStart(2, "0");
 }
 
-export default function HeroCarousel() {
+function getTimeLeft(targetDate: Date) {
+  return Math.max(0, targetDate.getTime() - Date.now());
+}
+
+export default function HeroCarousel({
+  initialTimeLeftMs,
+  targetDateIso,
+}: {
+  initialTimeLeftMs: number;
+  targetDateIso: string;
+}) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const targetDate = useMemo(() => new Date(Date.now() + 1000 * 60 * 60 * 72), []);
-  const [timeLeft, setTimeLeft] = useState(() => targetDate.getTime() - Date.now());
+  const targetDate = useMemo(() => new Date(targetDateIso), [targetDateIso]);
+  const [timeLeft, setTimeLeft] = useState(() =>
+    Math.max(0, initialTimeLeftMs),
+  );
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -24,8 +36,10 @@ export default function HeroCarousel() {
   }, []);
 
   useEffect(() => {
+    setTimeLeft(getTimeLeft(targetDate));
+
     const interval = window.setInterval(() => {
-      setTimeLeft(targetDate.getTime() - Date.now());
+      setTimeLeft(getTimeLeft(targetDate));
     }, 1000);
 
     return () => window.clearInterval(interval);
@@ -91,7 +105,9 @@ export default function HeroCarousel() {
                           type="button"
                           onClick={() => setActiveIndex(index)}
                           className={`h-2.5 rounded-full transition-all ${
-                            index === activeIndex ? "w-8 bg-white" : "w-2.5 bg-white/45"
+                            index === activeIndex
+                              ? "w-8 bg-white"
+                              : "w-2.5 bg-white/45"
                           }`}
                           aria-label={`Go to slide ${index + 1}`}
                         />
@@ -101,7 +117,11 @@ export default function HeroCarousel() {
                       <button
                         type="button"
                         onClick={() =>
-                          setActiveIndex((current) => (current - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)
+                          setActiveIndex(
+                            (current) =>
+                              (current - 1 + HERO_SLIDES.length) %
+                              HERO_SLIDES.length,
+                          )
                         }
                         className="rounded-full border border-white/25 bg-white/10 p-2 backdrop-blur transition hover:bg-white/20"
                         aria-label="Previous slide"
@@ -110,7 +130,11 @@ export default function HeroCarousel() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setActiveIndex((current) => (current + 1) % HERO_SLIDES.length)}
+                        onClick={() =>
+                          setActiveIndex(
+                            (current) => (current + 1) % HERO_SLIDES.length,
+                          )
+                        }
                         className="rounded-full border border-white/25 bg-white/10 p-2 backdrop-blur transition hover:bg-white/20"
                         aria-label="Next slide"
                       >
@@ -134,10 +158,15 @@ export default function HeroCarousel() {
               { label: "Days", value: formatPart(days) },
               { label: "Hours", value: formatPart(hours) },
               { label: "Mins", value: formatPart(minutes) },
-              { label: "Secs", value: formatPart(seconds) }
+              { label: "Secs", value: formatPart(seconds) },
             ].map((part) => (
-              <div key={part.label} className="rounded-2xl bg-[#fff4f1] p-3 text-center">
-                <div className="text-2xl font-black text-[#EE4D2D]">{part.value}</div>
+              <div
+                key={part.label}
+                className="rounded-2xl bg-[#fff4f1] p-3 text-center"
+              >
+                <div className="text-2xl font-black text-[#EE4D2D]">
+                  {part.value}
+                </div>
                 <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                   {part.label}
                 </div>
@@ -145,9 +174,12 @@ export default function HeroCarousel() {
             ))}
           </div>
           <div className="mt-6 rounded-2xl border border-dashed border-[#EE4D2D]/25 bg-gradient-to-r from-[#fff4f1] to-white p-4">
-            <p className="text-sm font-semibold text-slate-700">Limited-time push</p>
+            <p className="text-sm font-semibold text-slate-700">
+              Limited-time push
+            </p>
             <p className="mt-1 text-sm text-slate-500">
-              Shop discounted picks, then continue through basket and checkout without leaving the page.
+              Shop discounted picks, then continue through basket and checkout
+              without leaving the page.
             </p>
             <Link
               href="#flash-sale"

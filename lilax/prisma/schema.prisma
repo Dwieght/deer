@@ -16,6 +16,12 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum CustomerStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
 model User {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   email        String   @unique
@@ -24,6 +30,18 @@ model User {
   updatedAt    DateTime @updatedAt
 
   @@map("LilaxUser")
+}
+
+model Customer {
+  id           String         @id @default(auto()) @map("_id") @db.ObjectId
+  fullName     String
+  email        String         @unique
+  passwordHash String
+  status       CustomerStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@map("LilaxCustomer")
 }
 
 model Product {

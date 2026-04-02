@@ -14,3 +14,10 @@ export function requireSession() {
   }
   return session;
 }
+
+export function redirectAuthenticatedAdmin() {
+  const session = getSession();
+  if (session) {
+    redirect("/admin/products");
+  }
+}

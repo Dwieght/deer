@@ -2,19 +2,21 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent
-} from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import StorefrontFooter from "@/components/storefront/footer";
 import FlashSaleSection from "@/components/storefront/flash-sale-section";
 import HeroCarousel from "@/components/storefront/hero-carousel";
-import { ArrowUpIcon, CartIcon, SearchIcon } from "@/components/storefront/icons";
+import {
+  ArrowUpIcon,
+  CartIcon,
+  SearchIcon,
+} from "@/components/storefront/icons";
 import ProductCard from "@/components/storefront/product-card";
-import { BLUR_DATA_URL, CATEGORY_TILES, PROMO_BANNERS } from "@/components/storefront/data";
+import {
+  BLUR_DATA_URL,
+  CATEGORY_TILES,
+  PROMO_BANNERS,
+} from "@/components/storefront/data";
 import type { StoreProduct as Product } from "@/components/storefront/types";
 
 type BasketItem = {
@@ -50,18 +52,29 @@ const emptyCheckoutForm: CheckoutForm = {
   province: "",
   postalCode: "",
   country: "Philippines",
-  notes: ""
+  notes: "",
+};
+
+type HeroCountdown = {
+  initialTimeLeftMs: number;
+  targetDateIso: string;
 };
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("en-PH", {
     style: "currency",
     currency: "PHP",
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   }).format(value);
 }
 
-export default function StorefrontClient({ products }: { products: Product[] }) {
+export default function StorefrontClient({
+  products,
+  heroCountdown,
+}: {
+  products: Product[];
+  heroCountdown: HeroCountdown;
+}) {
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
@@ -69,10 +82,16 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
   const [hasLoadedCart, setHasLoadedCart] = useState(false);
   const [basketOpen, setBasketOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [checkoutForm, setCheckoutForm] = useState<CheckoutForm>(emptyCheckoutForm);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [checkoutForm, setCheckoutForm] =
+    useState<CheckoutForm>(emptyCheckoutForm);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(
+    null,
+  );
   const [quickViewImage, setQuickViewImage] = useState("");
   const [visibleCount, setVisibleCount] = useState(12);
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -153,7 +172,8 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
     return products.filter((product) => {
       const matchesCategory =
         activeCategory === "All" || product.category === activeCategory;
-      const haystack = `${product.name} ${product.description} ${product.category}`.toLowerCase();
+      const haystack =
+        `${product.name} ${product.description} ${product.category}`.toLowerCase();
       const matchesSearch = !search || haystack.includes(search);
       return matchesCategory && matchesSearch;
     });
@@ -180,7 +200,10 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
   }, [debouncedSearch, activeCategory]);
 
   useEffect(() => {
-    if (!sentinelRef.current || visibleProducts.length >= filteredProducts.length) {
+    if (
+      !sentinelRef.current ||
+      visibleProducts.length >= filteredProducts.length
+    ) {
       return;
     }
 
@@ -190,21 +213,27 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             setVisibleCount((current) =>
-              Math.min(current + 8, filteredProducts.length)
+              Math.min(current + 8, filteredProducts.length),
             );
           }
         });
       },
-      { rootMargin: "200px 0px" }
+      { rootMargin: "200px 0px" },
     );
 
     observer.observe(node);
     return () => observer.disconnect();
   }, [filteredProducts.length, visibleProducts.length]);
 
-  function addToCart(product: Product, options?: { openBasket?: boolean; silent?: boolean }) {
+  function addToCart(
+    product: Product,
+    options?: { openBasket?: boolean; silent?: boolean },
+  ) {
     if (product.stock <= 0) {
-      setMessage({ type: "error", text: `${product.name} is currently out of stock.` });
+      setMessage({
+        type: "error",
+        text: `${product.name} is currently out of stock.`,
+      });
       return;
     }
 
@@ -216,9 +245,9 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
           item.productId === product.id
             ? {
                 ...item,
-                quantity: Math.min(item.quantity + 1, item.stock)
+                quantity: Math.min(item.quantity + 1, item.stock),
               }
-            : item
+            : item,
         );
       }
 
@@ -231,13 +260,16 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
           imageUrl: product.imageUrl,
           price: product.price,
           quantity: 1,
-          stock: product.stock
-        }
+          stock: product.stock,
+        },
       ];
     });
 
     if (!options?.silent) {
-      setMessage({ type: "success", text: `${product.name} was added to your cart.` });
+      setMessage({
+        type: "success",
+        text: `${product.name} was added to your cart.`,
+      });
     }
 
     if (options?.openBasket) {
@@ -250,7 +282,10 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
     setQuickViewProduct(null);
     setBasketOpen(false);
     setCheckoutOpen(true);
-    setMessage({ type: "success", text: `${product.name} added. Continue to checkout.` });
+    setMessage({
+      type: "success",
+      text: `${product.name} added. Continue to checkout.`,
+    });
   }
 
   function updateQuantity(productId: string, nextQuantity: number) {
@@ -259,15 +294,17 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
         item.productId === productId
           ? {
               ...item,
-              quantity: Math.max(1, Math.min(nextQuantity, item.stock))
+              quantity: Math.max(1, Math.min(nextQuantity, item.stock)),
             }
-          : item
-      )
+          : item,
+      ),
     );
   }
 
   function removeItem(productId: string) {
-    setBasket((current) => current.filter((item) => item.productId !== productId));
+    setBasket((current) =>
+      current.filter((item) => item.productId !== productId),
+    );
   }
 
   function openQuickView(product: Product) {
@@ -290,15 +327,15 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           ...checkoutForm,
           items: basket.map((item) => ({
             productId: item.productId,
-            quantity: item.quantity
-          }))
-        })
+            quantity: item.quantity,
+          })),
+        }),
       });
 
       const data = await response.json();
@@ -306,7 +343,7 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
       if (!response.ok) {
         setMessage({
           type: "error",
-          text: data?.error || "Could not place your order."
+          text: data?.error || "Could not place your order.",
         });
         return;
       }
@@ -317,13 +354,13 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
       setBasketOpen(false);
       setMessage({
         type: "success",
-        text: `Order placed successfully. Your order code is ${data.orderCode}.`
+        text: `Order placed successfully. Your order code is ${data.orderCode}.`,
       });
       window.localStorage.removeItem("lilax-cart");
     } catch {
       setMessage({
         type: "error",
-        text: "Could not place your order. Please try again."
+        text: "Could not place your order. Please try again.",
       });
     } finally {
       setSubmitting(false);
@@ -341,7 +378,9 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
               </div>
               <div>
                 <p className="text-2xl font-black leading-none">Lilax</p>
-                <p className="text-xs text-white/80">Shop smarter, faster, cleaner</p>
+                <p className="text-xs text-white/80">
+                  Shop smarter, faster, cleaner
+                </p>
               </div>
             </Link>
 
@@ -427,13 +466,21 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
         </div>
       </header>
 
-      <HeroCarousel />
+      <HeroCarousel
+        initialTimeLeftMs={heroCountdown.initialTimeLeftMs}
+        targetDateIso={heroCountdown.targetDateIso}
+      />
 
-      <section id="categories" className="mx-auto mt-6 max-w-[1400px] px-4 sm:px-6 lg:px-8">
+      <section
+        id="categories"
+        className="mx-auto mt-6 max-w-[1400px] px-4 sm:px-6 lg:px-8"
+      >
         <div className="rounded-3xl bg-white p-5 shadow-card">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#EE4D2D]">Explore</p>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#EE4D2D]">
+                Explore
+              </p>
               <h2 className="mt-1 text-2xl font-black">Shop by Category</h2>
             </div>
             <span className="hidden rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-500 sm:inline-flex">
@@ -456,7 +503,9 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                   }`}
                 >
                   <div className="text-2xl">{tile.icon}</div>
-                  <div className="mt-3 text-xs font-bold text-slate-700">{tile.label}</div>
+                  <div className="mt-3 text-xs font-bold text-slate-700">
+                    {tile.label}
+                  </div>
                 </button>
               );
             })}
@@ -489,15 +538,22 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
               blurDataURL={BLUR_DATA_URL}
             />
             <div className="absolute inset-0 flex flex-col justify-end p-6 text-white">
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/70">Promo Banner</p>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/70">
+                Promo Banner
+              </p>
               <h3 className="mt-2 text-2xl font-black">{banner.title}</h3>
-              <p className="mt-2 max-w-md text-sm text-white/85">{banner.description}</p>
+              <p className="mt-2 max-w-md text-sm text-white/85">
+                {banner.description}
+              </p>
             </div>
           </Link>
         ))}
       </section>
 
-      <main id="just-for-you" className="mx-auto mt-6 max-w-[1400px] px-4 pb-16 sm:px-6 lg:px-8">
+      <main
+        id="just-for-you"
+        className="mx-auto mt-6 max-w-[1400px] px-4 pb-16 sm:px-6 lg:px-8"
+      >
         {message ? (
           <div
             className={`mb-5 rounded-2xl px-4 py-3 text-sm font-semibold shadow-sm ${
@@ -513,7 +569,9 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
         <section className="rounded-3xl bg-white p-5 shadow-card">
           <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#EE4D2D]">Personalized Feed</p>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#EE4D2D]">
+                Personalized Feed
+              </p>
               <h2 className="mt-1 text-2xl font-black">Just For You</h2>
               <p className="mt-1 text-sm text-slate-500">
                 {filteredProducts.length} products matched
@@ -535,7 +593,9 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
 
           {visibleProducts.length === 0 ? (
             <div className="py-16 text-center">
-              <h3 className="text-lg font-bold text-slate-800">No products found</h3>
+              <h3 className="text-lg font-bold text-slate-800">
+                No products found
+              </h3>
               <p className="mt-2 text-sm text-slate-500">
                 Try another keyword or choose a different category.
               </p>
@@ -548,14 +608,19 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                     key={product.id}
                     product={product}
                     query={debouncedSearch}
-                    onAddToCart={(item) => addToCart(item, { openBasket: true })}
+                    onAddToCart={(item) =>
+                      addToCart(item, { openBasket: true })
+                    }
                     onBuyNow={buyNow}
                     onQuickView={openQuickView}
                   />
                 ))}
               </div>
 
-              <div ref={sentinelRef} className="flex min-h-16 items-center justify-center pt-6">
+              <div
+                ref={sentinelRef}
+                className="flex min-h-16 items-center justify-center pt-6"
+              >
                 {visibleProducts.length < filteredProducts.length ? (
                   <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-500">
                     Loading more products...
@@ -585,15 +650,22 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
       ) : null}
 
       {basketOpen ? (
-        <div className="fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-sm" onClick={() => setBasketOpen(false)}>
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-sm"
+          onClick={() => setBasketOpen(false)}
+        >
           <aside
             className="absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto bg-white shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#EE4D2D]">Cart</p>
-                <h2 className="text-xl font-black text-slate-900">Your Basket</h2>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#EE4D2D]">
+                  Cart
+                </p>
+                <h2 className="text-xl font-black text-slate-900">
+                  Your Basket
+                </h2>
               </div>
               <button
                 type="button"
@@ -607,8 +679,12 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
             <div className="p-5">
               {basket.length === 0 ? (
                 <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center">
-                  <h3 className="text-lg font-bold text-slate-800">Your basket is empty</h3>
-                  <p className="mt-2 text-sm text-slate-500">Add a few products to continue.</p>
+                  <h3 className="text-lg font-bold text-slate-800">
+                    Your basket is empty
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Add a few products to continue.
+                  </p>
                 </div>
               ) : (
                 <>
@@ -629,15 +705,24 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                         />
                         <div className="flex min-w-0 flex-col gap-3">
                           <div>
-                            <h3 className="truncate text-sm font-bold text-slate-900">{item.name}</h3>
-                            <p className="text-sm text-[#EE4D2D]">{formatMoney(item.price)}</p>
+                            <h3 className="truncate text-sm font-bold text-slate-900">
+                              {item.name}
+                            </h3>
+                            <p className="text-sm text-[#EE4D2D]">
+                              {formatMoney(item.price)}
+                            </p>
                           </div>
 
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div className="inline-flex items-center rounded-full bg-slate-100 p-1">
                               <button
                                 type="button"
-                                onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                                onClick={() =>
+                                  updateQuantity(
+                                    item.productId,
+                                    item.quantity - 1,
+                                  )
+                                }
                                 className="grid h-8 w-8 place-items-center rounded-full bg-white text-sm font-bold text-slate-700"
                               >
                                 -
@@ -647,7 +732,12 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                               </span>
                               <button
                                 type="button"
-                                onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                                onClick={() =>
+                                  updateQuantity(
+                                    item.productId,
+                                    item.quantity + 1,
+                                  )
+                                }
                                 className="grid h-8 w-8 place-items-center rounded-full bg-white text-sm font-bold text-slate-700"
                               >
                                 +
@@ -669,7 +759,9 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                   <div className="mt-5 rounded-3xl bg-[#fff4f1] p-5">
                     <div className="flex items-center justify-between text-sm text-slate-600">
                       <span>Subtotal</span>
-                      <strong className="text-xl text-[#EE4D2D]">{formatMoney(subtotal)}</strong>
+                      <strong className="text-xl text-[#EE4D2D]">
+                        {formatMoney(subtotal)}
+                      </strong>
                     </div>
                     <button
                       type="button"
@@ -690,15 +782,22 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
       ) : null}
 
       {checkoutOpen ? (
-        <div className="fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-sm" onClick={() => setCheckoutOpen(false)}>
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-sm"
+          onClick={() => setCheckoutOpen(false)}
+        >
           <div
             className="mx-auto mt-6 max-h-[calc(100vh-3rem)] w-[calc(100%-1rem)] max-w-6xl overflow-y-auto rounded-[28px] bg-white shadow-2xl sm:mt-10"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#EE4D2D]">Checkout</p>
-                <h2 className="text-xl font-black text-slate-900">Shipping details</h2>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#EE4D2D]">
+                  Checkout
+                </p>
+                <h2 className="text-xl font-black text-slate-900">
+                  Shipping details
+                </h2>
               </div>
               <button
                 type="button"
@@ -711,21 +810,30 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
 
             <div className="grid gap-6 p-5 lg:grid-cols-[340px_minmax(0,1fr)]">
               <aside className="rounded-3xl border border-slate-100 bg-slate-50 p-5">
-                <h3 className="text-lg font-black text-slate-900">Order summary</h3>
+                <h3 className="text-lg font-black text-slate-900">
+                  Order summary
+                </h3>
                 <div className="mt-4 space-y-3">
                   {basket.map((item) => (
-                    <div key={item.productId} className="flex items-start justify-between gap-3 text-sm">
+                    <div
+                      key={item.productId}
+                      className="flex items-start justify-between gap-3 text-sm"
+                    >
                       <span className="text-slate-600">
                         {item.name} x {item.quantity}
                       </span>
-                      <strong className="text-slate-900">{formatMoney(item.price * item.quantity)}</strong>
+                      <strong className="text-slate-900">
+                        {formatMoney(item.price * item.quantity)}
+                      </strong>
                     </div>
                   ))}
                 </div>
                 <div className="mt-5 border-t border-slate-200 pt-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-500">Total</span>
-                    <strong className="text-2xl font-black text-[#EE4D2D]">{formatMoney(subtotal)}</strong>
+                    <strong className="text-2xl font-black text-[#EE4D2D]">
+                      {formatMoney(subtotal)}
+                    </strong>
                   </div>
                 </div>
               </aside>
@@ -740,7 +848,7 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                       onChange={(event) =>
                         setCheckoutForm((current) => ({
                           ...current,
-                          customerName: event.target.value
+                          customerName: event.target.value,
                         }))
                       }
                       className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
@@ -755,7 +863,7 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                       onChange={(event) =>
                         setCheckoutForm((current) => ({
                           ...current,
-                          email: event.target.value
+                          email: event.target.value,
                         }))
                       }
                       className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
@@ -769,7 +877,7 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                       onChange={(event) =>
                         setCheckoutForm((current) => ({
                           ...current,
-                          phone: event.target.value
+                          phone: event.target.value,
                         }))
                       }
                       className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
@@ -784,7 +892,7 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                       onChange={(event) =>
                         setCheckoutForm((current) => ({
                           ...current,
-                          country: event.target.value
+                          country: event.target.value,
                         }))
                       }
                       className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
@@ -799,7 +907,7 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                       onChange={(event) =>
                         setCheckoutForm((current) => ({
                           ...current,
-                          addressLine1: event.target.value
+                          addressLine1: event.target.value,
                         }))
                       }
                       className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
@@ -814,7 +922,7 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                       onChange={(event) =>
                         setCheckoutForm((current) => ({
                           ...current,
-                          addressLine2: event.target.value
+                          addressLine2: event.target.value,
                         }))
                       }
                       className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
@@ -828,7 +936,7 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                       onChange={(event) =>
                         setCheckoutForm((current) => ({
                           ...current,
-                          city: event.target.value
+                          city: event.target.value,
                         }))
                       }
                       className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
@@ -843,7 +951,7 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                       onChange={(event) =>
                         setCheckoutForm((current) => ({
                           ...current,
-                          province: event.target.value
+                          province: event.target.value,
                         }))
                       }
                       className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
@@ -858,7 +966,7 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                       onChange={(event) =>
                         setCheckoutForm((current) => ({
                           ...current,
-                          postalCode: event.target.value
+                          postalCode: event.target.value,
                         }))
                       }
                       className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
@@ -873,7 +981,7 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                       onChange={(event) =>
                         setCheckoutForm((current) => ({
                           ...current,
-                          notes: event.target.value
+                          notes: event.target.value,
                         }))
                       }
                       className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
@@ -895,7 +1003,10 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
       ) : null}
 
       {quickViewProduct ? (
-        <div className="fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-sm" onClick={() => setQuickViewProduct(null)}>
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/45 backdrop-blur-sm"
+          onClick={() => setQuickViewProduct(null)}
+        >
           <div
             className="mx-auto mt-6 max-h-[calc(100vh-3rem)] w-[calc(100%-1rem)] max-w-5xl overflow-y-auto rounded-[28px] bg-white shadow-2xl sm:mt-10"
             onClick={(event) => event.stopPropagation()}
@@ -915,30 +1026,31 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                   />
                 </div>
                 <div className="mt-3 grid grid-cols-4 gap-3">
-                  {(quickViewProduct.gallery.length ? quickViewProduct.gallery : [quickViewProduct.imageUrl]).map(
-                    (image, index) => (
-                      <button
-                        key={`${quickViewProduct.id}-thumb-${index}`}
-                        type="button"
-                        onClick={() => setQuickViewImage(image)}
-                        className={`overflow-hidden rounded-2xl border ${
-                          quickViewImage === image
-                            ? "border-[#EE4D2D]"
-                            : "border-slate-200"
-                        }`}
-                      >
-                        <Image
-                          src={image}
-                          alt={`${quickViewProduct.name} preview ${index + 1}`}
-                          width={160}
-                          height={160}
-                          className="aspect-square h-auto w-full object-cover"
-                          placeholder="blur"
-                          blurDataURL={BLUR_DATA_URL}
-                        />
-                      </button>
-                    )
-                  )}
+                  {(quickViewProduct.gallery.length
+                    ? quickViewProduct.gallery
+                    : [quickViewProduct.imageUrl]
+                  ).map((image, index) => (
+                    <button
+                      key={`${quickViewProduct.id}-thumb-${index}`}
+                      type="button"
+                      onClick={() => setQuickViewImage(image)}
+                      className={`overflow-hidden rounded-2xl border ${
+                        quickViewImage === image
+                          ? "border-[#EE4D2D]"
+                          : "border-slate-200"
+                      }`}
+                    >
+                      <Image
+                        src={image}
+                        alt={`${quickViewProduct.name} preview ${index + 1}`}
+                        width={160}
+                        height={160}
+                        className="aspect-square h-auto w-full object-cover"
+                        placeholder="blur"
+                        blurDataURL={BLUR_DATA_URL}
+                      />
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -988,7 +1100,9 @@ export default function StorefrontClient({ products }: { products: Product[] }) 
                 <div className="mt-8 grid gap-3 sm:grid-cols-2">
                   <button
                     type="button"
-                    onClick={() => addToCart(quickViewProduct, { openBasket: true })}
+                    onClick={() =>
+                      addToCart(quickViewProduct, { openBasket: true })
+                    }
                     disabled={quickViewProduct.stock <= 0}
                     className="rounded-2xl border border-[#EE4D2D]/15 bg-[#fff4f1] px-4 py-3 text-sm font-bold text-[#EE4D2D] transition hover:bg-[#ffe7e1] disabled:cursor-not-allowed disabled:opacity-50"
                   >
