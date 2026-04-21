@@ -20,6 +20,8 @@ export default async function ProductsPage({ searchParams }) {
   const products = await prisma.product.findMany({
     orderBy: { createdAt: "desc" },
   });
+  const categoryCount = new Set(products.map((product) => product.category?.trim()).filter(Boolean)).size;
+  const sizedProducts = products.filter((product) => (product.sizes || []).length > 0).length;
 
   const PAGE_SIZE = 8;
   const productsSearch = normalizeSearch(searchParams?.productsSearch);
@@ -33,49 +35,67 @@ export default async function ProductsPage({ searchParams }) {
   const productsPagination = paginate(productsFiltered, productsPage, PAGE_SIZE);
 
   return (
-    <section className="section" id="products">
-      <div className="section-header">
-        <div>
-          <h2>Shop Products</h2>
-          <p>Add new merch items and keep prices up to date.</p>
+    <section className="section dashboard-section" id="products">
+      <div className="dashboard-page-header">
+        <div className="dashboard-page-heading">
+          <p className="dashboard-kicker">Catalog</p>
+          <h1>Shop products</h1>
+          <p>Maintain the merch catalog, pricing, imagery, and size options from one place.</p>
         </div>
-        <Modal triggerLabel="Add Product" title="Add Product" triggerClassName="primary-button">
-          <AdminForm action={createProduct} className="admin-form">
-            <label htmlFor="product-name">
-              Product Name
-              <input id="product-name" type="text" name="name" required />
-            </label>
-            <div className="form-row">
-              <label htmlFor="product-category">
-                Category
-                <input id="product-category" type="text" name="category" placeholder="Stickers" required />
+        <div className="dashboard-page-actions">
+          <Modal triggerLabel="Add Product" title="Add Product" triggerClassName="primary-button">
+            <AdminForm action={createProduct} className="admin-form">
+              <label htmlFor="product-name">
+                Product Name
+                <input id="product-name" type="text" name="name" required />
               </label>
-              <label htmlFor="product-price">
-                Price
-                <input id="product-price" type="number" name="price" min="0" step="0.01" required />
+              <div className="form-row">
+                <label htmlFor="product-category">
+                  Category
+                  <input id="product-category" type="text" name="category" placeholder="Stickers" required />
+                </label>
+                <label htmlFor="product-price">
+                  Price
+                  <input id="product-price" type="number" name="price" min="0" step="0.01" required />
+                </label>
+              </div>
+              <label htmlFor="product-image">
+                Image URL
+                <input id="product-image" type="text" name="imageUrl" placeholder="https://" required />
               </label>
-            </div>
-            <label htmlFor="product-image">
-              Image URL
-              <input id="product-image" type="text" name="imageUrl" placeholder="https://" required />
-            </label>
-            <label htmlFor="product-images">
-              Extra Image URLs (one per line)
-              <textarea id="product-images" name="imageUrls" rows="4" placeholder="https://"></textarea>
-            </label>
-            <label htmlFor="product-sizes">
-              Sizes (comma separated)
-              <input id="product-sizes" type="text" name="sizes" placeholder="XS, S, M, L, XL" />
-            </label>
-            <label htmlFor="product-description">
-              Description
-              <textarea id="product-description" name="description" rows="3"></textarea>
-            </label>
-            <button className="primary-button" type="submit">
-              Save Product
-            </button>
-          </AdminForm>
-        </Modal>
+              <label htmlFor="product-images">
+                Extra Image URLs (one per line)
+                <textarea id="product-images" name="imageUrls" rows="4" placeholder="https://"></textarea>
+              </label>
+              <label htmlFor="product-sizes">
+                Sizes (comma separated)
+                <input id="product-sizes" type="text" name="sizes" placeholder="XS, S, M, L, XL" />
+              </label>
+              <label htmlFor="product-description">
+                Description
+                <textarea id="product-description" name="description" rows="3"></textarea>
+              </label>
+              <button className="primary-button" type="submit">
+                Save Product
+              </button>
+            </AdminForm>
+          </Modal>
+        </div>
+      </div>
+
+      <div className="dashboard-grid dashboard-grid-stats">
+        <div className="stat-card">
+          <p className="stat-label">Products</p>
+          <p className="stat-value">{products.length}</p>
+        </div>
+        <div className="stat-card">
+          <p className="stat-label">Categories</p>
+          <p className="stat-value">{categoryCount}</p>
+        </div>
+        <div className="stat-card">
+          <p className="stat-label">Size-enabled</p>
+          <p className="stat-value">{sizedProducts}</p>
+        </div>
       </div>
 
       {productsFiltered.length > 0 || productsSearch

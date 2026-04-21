@@ -23,6 +23,9 @@ export default async function OrdersPage({ searchParams }) {
     orderBy: { createdAt: "desc" },
     include: { product: true },
   });
+  const pendingCount = orders.filter((order) => order.status === "PENDING").length;
+  const shippedCount = orders.filter((order) => order.status === "SHIPPED").length;
+  const deliveredCount = orders.filter((order) => order.status === "DELIVERED").length;
 
   const PAGE_SIZE = 8;
   const ordersSearch = normalizeSearch(searchParams?.ordersSearch);
@@ -35,11 +38,27 @@ export default async function OrdersPage({ searchParams }) {
   const ordersPagination = paginate(ordersFiltered, ordersPage, PAGE_SIZE);
 
   return (
-    <section className="section" id="orders">
-      <div className="section-header">
-        <div>
-          <h2>Orders</h2>
-          <p>Review and update customer orders from the shop.</p>
+    <section className="section dashboard-section" id="orders">
+      <div className="dashboard-page-header">
+        <div className="dashboard-page-heading">
+          <p className="dashboard-kicker">Commerce</p>
+          <h1>Orders</h1>
+          <p>Track customer purchases, update fulfillment status, and keep shipping details clean.</p>
+        </div>
+      </div>
+
+      <div className="dashboard-grid dashboard-grid-stats">
+        <div className="stat-card">
+          <p className="stat-label">Total Orders</p>
+          <p className="stat-value">{orders.length}</p>
+        </div>
+        <div className="stat-card">
+          <p className="stat-label">Pending</p>
+          <p className="stat-value">{pendingCount}</p>
+        </div>
+        <div className="stat-card">
+          <p className="stat-label">In Fulfillment</p>
+          <p className="stat-value">{shippedCount + deliveredCount}</p>
         </div>
       </div>
 

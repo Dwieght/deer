@@ -19,9 +19,11 @@ export default function DashboardLayout({ children }) {
   }
 
   return (
-    <main className="dashboard-layout">
+    <div className="dashboard-shell">
       <Sidebar userEmail={session.email} />
-      <div className="dashboard-content">{children}</div>
-    </main>
+      <main className="dashboard-main">
+        <div className="dashboard-content">{children}</div>
+      </main>
+    </div>
   );
 }
