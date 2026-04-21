@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  addProductToCart,
+  removeCartItemByKey,
+  updateCartItemInCart,
+} from "./cart-utils.mjs";
+import { getNextFocusIndex } from "./modal-focus-utils.mjs";
 
 function formatAmount(amount) {
   if (amount === null || amount === undefined) {
@@ -106,10 +112,57 @@ function renderStars(rating) {
   return FILLED_STAR.repeat(value) + EMPTY_STAR.repeat(5 - value);
 }
 
+function getFocusableElements(container) {
+  if (!container) {
+    return [];
+  }
+
+  return Array.from(
+    container.querySelectorAll(
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter(
+    (element) =>
+      !element.hasAttribute("disabled") &&
+      element.getAttribute("aria-hidden") !== "true",
+  );
+}
+
+function trapFocus(event, container) {
+  if (event.key !== "Tab" || !container) {
+    return;
+  }
+
+  const focusableElements = getFocusableElements(container);
+  const currentIndex = focusableElements.indexOf(document.activeElement);
+  const nextIndex = getNextFocusIndex(
+    currentIndex,
+    focusableElements.length,
+    event.shiftKey,
+  );
+
+  if (nextIndex === -1) {
+    event.preventDefault();
+    container.focus();
+    return;
+  }
+
+  const isBoundaryTransition =
+    currentIndex === -1 ||
+    (event.shiftKey && currentIndex === 0) ||
+    (!event.shiftKey && currentIndex === focusableElements.length - 1);
+
+  if (isBoundaryTransition) {
+    event.preventDefault();
+    focusableElements[nextIndex].focus();
+  }
+}
+
 export default function ShopClient({
   products = [],
   paymentQrs = [],
-  feedbackByProduct = {},
+  feedbackSummaryByProduct = {},
+  feedbackPreviewByProduct = {},
   initialProductId = "",
   initialFeedback = false,
 }) {
@@ -174,6 +227,13 @@ export default function ShopClient({
   const [trackResult, setTrackResult] = useState(null);
   const [trackMessage, setTrackMessage] = useState(null);
   const [trackLoading, setTrackLoading] = useState(false);
+  const descDialogRef = useRef(null);
+  const orderDialogRef = useRef(null);
+  const cartDialogRef = useRef(null);
+  const checkoutDialogRef = useRef(null);
+  const feedbackDialogRef = useRef(null);
+  const trackDialogRef = useRef(null);
+  const focusReturnStackRef = useRef([]);
 
   const categories = useMemo(() => {
     const unique = new Set();
@@ -200,23 +260,6 @@ export default function ShopClient({
     });
   }, [products, searchQuery, activeCategory]);
 
-  const feedbackSummary = useMemo(() => {
-    const summary = {};
-    products.forEach((product) => {
-      const list = feedbackByProduct[product.id] || [];
-      if (!list.length) {
-        summary[product.id] = { avg: 0, count: 0 };
-        return;
-      }
-      const total = list.reduce(
-        (acc, item) => acc + (Number(item.rating) || 0),
-        0,
-      );
-      summary[product.id] = { avg: total / list.length, count: list.length };
-    });
-    return summary;
-  }, [products, feedbackByProduct]);
-
   const REGION_OPTIONS = [
     "Metro Manila",
     "North Luzon",
@@ -237,17 +280,19 @@ export default function ShopClient({
     Number.isFinite(orderForm.quantity) && orderForm.quantity > 0
       ? orderForm.quantity
       : 1;
-
-  useEffect(() => {
-    if (!orderModal.open) {
-      return undefined;
-    }
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [orderModal.open]);
+  const activeDialogKey = trackModal
+    ? "track"
+    : feedbackModal.open
+      ? "feedback"
+      : checkoutOpen
+        ? "checkout"
+        : cartOpen
+          ? "cart"
+          : orderModal.open
+            ? "order"
+            : descModal.open
+              ? "desc"
+              : null;
 
   useEffect(() => {
     if (!orderModal.open || !orderModal.product?.images?.length) {
@@ -267,96 +312,166 @@ export default function ShopClient({
   }, [orderModal.open, orderModal.product]);
 
   useEffect(() => {
-    if (!descModal.open) {
+    if (!activeDialogKey) {
       return undefined;
     }
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
+    const dialogRefMap = {
+      desc: descDialogRef,
+      order: orderDialogRef,
+      cart: cartDialogRef,
+      checkout: checkoutDialogRef,
+      feedback: feedbackDialogRef,
+      track: trackDialogRef,
+    };
+    const dialog = dialogRefMap[activeDialogKey]?.current;
+    let rafId = 0;
+
+    const closeDialogByKey = (key) => {
+      if (key === "desc") {
+        closeDescModal();
+        return;
+      }
+      if (key === "order") {
+        closeOrderModal();
+        return;
+      }
+      if (key === "cart") {
+        closeCart();
+        return;
+      }
+      if (key === "checkout") {
+        closeCheckout();
+        return;
+      }
+      if (key === "feedback") {
+        closeFeedbackModal();
+        return;
+      }
+      if (key === "track") {
+        closeTrackModal();
+      }
+    };
+
+    if (dialog) {
+      rafId = window.requestAnimationFrame(() => {
+        const focusableElements = getFocusableElements(dialog);
+        (focusableElements[0] || dialog).focus();
+      });
+
+      const handleDialogKeyDown = (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeDialogByKey(activeDialogKey);
+          return;
+        }
+
+        trapFocus(event, dialog);
+      };
+
+      dialog.addEventListener("keydown", handleDialogKeyDown);
+
+      return () => {
+        window.cancelAnimationFrame(rafId);
+        dialog.removeEventListener("keydown", handleDialogKeyDown);
+        document.body.style.overflow = previous;
+      };
+    }
+
     return () => {
       document.body.style.overflow = previous;
     };
-  }, [descModal.open]);
+  }, [activeDialogKey]);
 
-  useEffect(() => {
-    if (!descModal.open) {
-      return undefined;
+  const rememberFocusTarget = () => {
+    if (typeof document === "undefined") {
+      return;
     }
-    const handleKey = (event) => {
-      if (event.key === "Escape") {
-        setDescModal({ open: false, product: null });
+
+    const activeElement =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    if (!activeElement || activeElement === document.body) {
+      return;
+    }
+
+    focusReturnStackRef.current.push(activeElement);
+  };
+
+  const restoreFocusTarget = () => {
+    while (focusReturnStackRef.current.length) {
+      const target = focusReturnStackRef.current.pop();
+      if (target && target.isConnected && typeof target.focus === "function") {
+        target.focus();
+        return;
       }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [descModal.open]);
-
-  useEffect(() => {
-    if (!orderModal.open) {
-      return undefined;
     }
-    const handleKey = (event) => {
-      if (event.key === "Escape") {
-        setOrderModal({ open: false, product: null });
-      }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [orderModal.open]);
+  };
 
-  useEffect(() => {
-    if (!feedbackModal.open) {
-      return undefined;
+  const closeDescModal = (restoreFocus = true) => {
+    setDescModal({ open: false, product: null });
+    if (restoreFocus) {
+      restoreFocusTarget();
     }
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [feedbackModal.open]);
+  };
 
-  useEffect(() => {
-    if (!feedbackModal.open) {
-      return undefined;
+  const closeOrderModal = (restoreFocus = true) => {
+    setOrderModal({ open: false, product: null });
+    if (restoreFocus) {
+      restoreFocusTarget();
     }
-    const handleKey = (event) => {
-      if (event.key === "Escape") {
-        setFeedbackModal({ open: false, product: null });
-      }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [feedbackModal.open]);
+  };
 
-  useEffect(() => {
-    if (!trackModal) {
-      return undefined;
+  const closeFeedbackModal = (restoreFocus = true) => {
+    setFeedbackModal({ open: false, product: null });
+    if (restoreFocus) {
+      restoreFocusTarget();
     }
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const handleKey = (event) => {
-      if (event.key === "Escape") {
-        setTrackModal(false);
-      }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => {
-      document.body.style.overflow = previous;
-      window.removeEventListener("keydown", handleKey);
-    };
-  }, [trackModal]);
+  };
 
-  useEffect(() => {
-    if (!cartOpen && !checkoutOpen) {
-      return undefined;
+  const openCart = () => {
+    rememberFocusTarget();
+    setCartOpen(true);
+  };
+
+  const closeCart = (restoreFocus = true) => {
+    setCartOpen(false);
+    if (restoreFocus) {
+      restoreFocusTarget();
     }
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [cartOpen, checkoutOpen]);
+  };
+
+  const openCheckout = () => {
+    rememberFocusTarget();
+    setCheckoutOpen(true);
+  };
+
+  const closeCheckout = (restoreFocus = true) => {
+    setCheckoutOpen(false);
+    if (restoreFocus) {
+      restoreFocusTarget();
+    }
+  };
+
+  const openTrackModal = () => {
+    rememberFocusTarget();
+    setTrackId("");
+    setTrackResult(null);
+    setTrackMessage(null);
+    setTrackModal(true);
+  };
+
+  const closeTrackModal = (restoreFocus = true) => {
+    setTrackModal(false);
+    if (restoreFocus) {
+      restoreFocusTarget();
+    }
+  };
 
   const openOrderModal = (product) => {
+    rememberFocusTarget();
     setOrderForm({
       customerName: "",
       phone: "",
@@ -386,47 +501,16 @@ export default function ShopClient({
   };
 
   const addToCart = (product) => {
-    setCartItems((prev) => {
-      const defaultSize =
-        product.sizes && product.sizes.length ? product.sizes[0] : "";
-      const existingIndex = prev.findIndex(
-        (item) =>
-          item.productId === product.id &&
-          (item.size || "") === (defaultSize || ""),
-      );
-      if (existingIndex >= 0) {
-        return prev.map((item, index) =>
-          index === existingIndex
-            ? { ...item, quantity: item.quantity + 1 }
-            : item,
-        );
-      }
-      return [
-        ...prev,
-        {
-          productId: product.id,
-          name: product.name,
-          price: product.price,
-          imageUrl: product.imageUrl,
-          sizes: product.sizes || [],
-          size: defaultSize,
-          quantity: 1,
-        },
-      ];
-    });
-    setCartOpen(true);
+    setCartItems((prev) => addProductToCart(prev, product));
+    openCart();
   };
 
-  const updateCartItem = (productId, updates) => {
-    setCartItems((prev) =>
-      prev.map((item) =>
-        item.productId === productId ? { ...item, ...updates } : item,
-      ),
-    );
+  const updateCartItem = (itemKey, updates) => {
+    setCartItems((prev) => updateCartItemInCart(prev, itemKey, updates));
   };
 
-  const removeCartItem = (productId) => {
-    setCartItems((prev) => prev.filter((item) => item.productId !== productId));
+  const removeCartItem = (itemKey) => {
+    setCartItems((prev) => removeCartItemByKey(prev, itemKey));
   };
 
   const cartTotal = useMemo(
@@ -439,6 +523,7 @@ export default function ShopClient({
   );
 
   const openDescModal = (product) => {
+    rememberFocusTarget();
     setDescModal({ open: true, product });
     setFeedbackForm({ fullName: "", rating: 0, message: "" });
     setFeedbackHover(0);
@@ -446,6 +531,7 @@ export default function ShopClient({
   };
 
   const openFeedbackModal = (product) => {
+    rememberFocusTarget();
     setFeedbackModal({ open: true, product });
     setFeedbackForm({ fullName: "", rating: 0, message: "" });
     setFeedbackHover(0);
@@ -748,8 +834,9 @@ export default function ShopClient({
       });
       window.alert("Order submitted! We will contact you to confirm.");
       setCartItems([]);
-      setCheckoutOpen(false);
-      setCartOpen(false);
+      focusReturnStackRef.current = [];
+      closeCheckout(false);
+      closeCart(false);
       setCheckoutForm({
         customerName: "",
         phone: "",
@@ -815,7 +902,7 @@ export default function ShopClient({
       });
       window.alert("Feedback submitted! Thank you.");
       window.setTimeout(() => {
-        setFeedbackModal({ open: false, product: null });
+        closeFeedbackModal();
         setFeedbackMessage(null);
       }, 900);
     } catch (error) {
@@ -877,7 +964,9 @@ export default function ShopClient({
           <button
             className="menu-toggle"
             type="button"
-            aria-label="Open menu"
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="shop-mobile-menu"
             onClick={() => setMobileMenuOpen((open) => !open)}
           >
             <span />
@@ -887,8 +976,10 @@ export default function ShopClient({
       </header>
 
       <aside
+        id="shop-mobile-menu"
         className={`mobile-menu ${mobileMenuOpen ? "is-open" : ""}`}
         aria-label="Mobile"
+        hidden={!mobileMenuOpen}
       >
         <a href="/#home" onClick={() => setMobileMenuOpen(false)}>
           Home
@@ -963,12 +1054,7 @@ export default function ShopClient({
               <button
                 className="ghost-button"
                 type="button"
-                onClick={() => {
-                  setTrackId("");
-                  setTrackResult(null);
-                  setTrackMessage(null);
-                  setTrackModal(true);
-                }}
+                onClick={openTrackModal}
               >
                 📦 Track Order
               </button>
@@ -978,12 +1064,7 @@ export default function ShopClient({
               <button
                 className="ghost-button"
                 type="button"
-                onClick={() => {
-                  setTrackId("");
-                  setTrackResult(null);
-                  setTrackMessage(null);
-                  setTrackModal(true);
-                }}
+                onClick={openTrackModal}
               >
                 📦 Track Order
               </button>
@@ -1005,11 +1086,7 @@ export default function ShopClient({
           </div>
         </section>
 
-        <div
-          className="shop-category-row"
-          role="tablist"
-          aria-label="Product categories"
-        >
+        <div className="shop-category-row" role="group" aria-label="Product categories">
           {categories.map((category) => (
             <button
               key={category}
@@ -1029,27 +1106,20 @@ export default function ShopClient({
           </section>
         ) : (
           <section className="shop-grid" aria-live="polite">
-            {filteredProducts.map((product) => (
+            {filteredProducts.map((product, index) => (
               <article
                 key={product.id}
                 id={`product-${product.id}`}
-                className={`product-card is-clickable ${
+                className={`product-card ${
                   initialProductId === product.id ? "is-highlight" : ""
                 }`}
-                role="button"
-                tabIndex={0}
-                onClick={() => openOrderModal(product)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    openOrderModal(product);
-                  }
-                }}
               >
                 <img
                   src={getProductImageUrl(product.imageUrl)}
                   alt={product.name}
                   className="product-image"
+                  loading={index < 4 ? "eager" : "lazy"}
+                  decoding="async"
                   onError={(event) =>
                     applyImageFallback(
                       event,
@@ -1060,16 +1130,18 @@ export default function ShopClient({
                 <span className="product-category">{product.category}</span>
                 <div className="product-content">
                   <h3 className="product-name">{product.name}</h3>
-                  {feedbackSummary[product.id]?.count ? (
+                  {feedbackSummaryByProduct[product.id]?.count ? (
                     <div className="rating-summary">
                       <span className="rating-stars">
                         {renderStars(
-                          Math.round(feedbackSummary[product.id].avg),
+                          Math.round(
+                            feedbackSummaryByProduct[product.id].avg,
+                          ),
                         )}
                       </span>
                       <span className="rating-count">
-                        {feedbackSummary[product.id].avg.toFixed(1)} (
-                        {feedbackSummary[product.id].count})
+                        {feedbackSummaryByProduct[product.id].avg.toFixed(1)} (
+                        {feedbackSummaryByProduct[product.id].count})
                       </span>
                     </div>
                   ) : (
@@ -1163,13 +1235,15 @@ export default function ShopClient({
         <div
           className="modal-overlay"
           role="presentation"
-          onClick={() => setDescModal({ open: false, product: null })}
+          onClick={() => closeDescModal()}
         >
           <div
             className="modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="desc-modal-title"
+            ref={descDialogRef}
+            tabIndex={-1}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
@@ -1177,7 +1251,7 @@ export default function ShopClient({
               <button
                 type="button"
                 className="light-button modal-close"
-                onClick={() => setDescModal({ open: false, product: null })}
+                onClick={() => closeDescModal()}
               >
                 Close
               </button>
@@ -1208,7 +1282,7 @@ export default function ShopClient({
                   type="button"
                   className="secondary-button"
                   onClick={() => {
-                    setDescModal({ open: false, product: null });
+                    closeDescModal(false);
                     openOrderModal(descModal.product);
                   }}
                 >
@@ -1224,13 +1298,15 @@ export default function ShopClient({
         <div
           className="modal-overlay"
           role="presentation"
-          onClick={() => setOrderModal({ open: false, product: null })}
+          onClick={() => closeOrderModal()}
         >
           <div
             className="modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="order-modal-title"
+            ref={orderDialogRef}
+            tabIndex={-1}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
@@ -1238,7 +1314,7 @@ export default function ShopClient({
               <button
                 type="button"
                 className="light-button modal-close"
-                onClick={() => setOrderModal({ open: false, product: null })}
+                onClick={() => closeOrderModal()}
               >
                 Close
               </button>
@@ -1515,7 +1591,7 @@ export default function ShopClient({
                       <button
                         className="ghost-button"
                         type="button"
-                        onClick={() => setCartOpen(true)}
+                        onClick={openCart}
                       >
                         Cart ({cartItems.length})
                       </button>
@@ -1547,11 +1623,11 @@ export default function ShopClient({
                   </button>
                   {orderMessage ? (
                     <p
-                      className="form-message"
-                      style={{
-                        color:
-                          orderMessage.type === "error" ? "#a33" : "#2a3d31",
-                      }}
+                      className={`form-message ${
+                        orderMessage.type === "error"
+                          ? "is-error"
+                          : "is-success"
+                      }`}
                     >
                       {orderMessage.text}
                     </p>
@@ -1566,13 +1642,15 @@ export default function ShopClient({
         <div
           className="modal-overlay"
           role="presentation"
-          onClick={() => setCartOpen(false)}
+          onClick={() => closeCart()}
         >
           <div
             className="modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="cart-modal-title"
+            ref={cartDialogRef}
+            tabIndex={-1}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
@@ -1580,7 +1658,7 @@ export default function ShopClient({
               <button
                 type="button"
                 className="light-button modal-close"
-                onClick={() => setCartOpen(false)}
+                onClick={() => closeCart()}
               >
                 Close
               </button>
@@ -1592,7 +1670,7 @@ export default function ShopClient({
                 <>
                   <div className="cart-list">
                     {cartItems.map((item) => (
-                      <div key={item.productId} className="cart-item">
+                      <div key={item.itemKey} className="cart-item">
                         <img
                           src={getProductImageUrl(item.imageUrl)}
                           alt={item.name}
@@ -1607,7 +1685,7 @@ export default function ShopClient({
                             <select
                               value={item.size}
                               onChange={(event) =>
-                                updateCartItem(item.productId, {
+                                updateCartItem(item.itemKey, {
                                   size: event.target.value,
                                 })
                               }
@@ -1624,7 +1702,7 @@ export default function ShopClient({
                               type="button"
                               className="ghost-button"
                               onClick={() =>
-                                updateCartItem(item.productId, {
+                                updateCartItem(item.itemKey, {
                                   quantity: Math.max(1, item.quantity - 1),
                                 })
                               }
@@ -1636,7 +1714,7 @@ export default function ShopClient({
                               type="button"
                               className="ghost-button"
                               onClick={() =>
-                                updateCartItem(item.productId, {
+                                updateCartItem(item.itemKey, {
                                   quantity: item.quantity + 1,
                                 })
                               }
@@ -1648,7 +1726,7 @@ export default function ShopClient({
                         <button
                           type="button"
                           className="ghost-button"
-                          onClick={() => removeCartItem(item.productId)}
+                          onClick={() => removeCartItem(item.itemKey)}
                         >
                           Remove
                         </button>
@@ -1664,8 +1742,8 @@ export default function ShopClient({
                       className="secondary-button"
                       type="button"
                       onClick={() => {
-                        setCartOpen(false);
-                        setCheckoutOpen(true);
+                        closeCart(false);
+                        openCheckout();
                       }}
                     >
                       Proceed to Checkout
@@ -1681,13 +1759,15 @@ export default function ShopClient({
         <div
           className="modal-overlay"
           role="presentation"
-          onClick={() => setCheckoutOpen(false)}
+          onClick={() => closeCheckout()}
         >
           <div
             className="modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="checkout-modal-title"
+            ref={checkoutDialogRef}
+            tabIndex={-1}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
@@ -1695,7 +1775,7 @@ export default function ShopClient({
               <button
                 type="button"
                 className="light-button modal-close"
-                onClick={() => setCheckoutOpen(false)}
+                onClick={() => closeCheckout()}
               >
                 Close
               </button>
@@ -1917,11 +1997,11 @@ export default function ShopClient({
                 </button>
                 {checkoutMessage ? (
                   <p
-                    className="form-message"
-                    style={{
-                      color:
-                        checkoutMessage.type === "error" ? "#a33" : "#2a3d31",
-                    }}
+                    className={`form-message ${
+                      checkoutMessage.type === "error"
+                        ? "is-error"
+                        : "is-success"
+                    }`}
                   >
                     {checkoutMessage.text}
                   </p>
@@ -1936,13 +2016,15 @@ export default function ShopClient({
         <div
           className="modal-overlay"
           role="presentation"
-          onClick={() => setFeedbackModal({ open: false, product: null })}
+          onClick={() => closeFeedbackModal()}
         >
           <div
             className="modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="feedback-modal-title"
+            ref={feedbackDialogRef}
+            tabIndex={-1}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
@@ -1952,7 +2034,7 @@ export default function ShopClient({
               <button
                 type="button"
                 className="light-button modal-close"
-                onClick={() => setFeedbackModal({ open: false, product: null })}
+                onClick={() => closeFeedbackModal()}
               >
                 Close
               </button>
@@ -1973,10 +2055,10 @@ export default function ShopClient({
                       : "Copy Feedback Link"}
                   </button>
                 </div>
-                {(feedbackByProduct[feedbackModal.product.id] || []).length ? (
+                {(feedbackPreviewByProduct[feedbackModal.product.id] || [])
+                  .length ? (
                   <div className="feedback-list">
-                    {(feedbackByProduct[feedbackModal.product.id] || [])
-                      .slice(0, 5)
+                    {(feedbackPreviewByProduct[feedbackModal.product.id] || [])
                       .map((item) => (
                         <article key={item.id} className="feedback-card">
                           <div className="feedback-header">
@@ -2063,11 +2145,11 @@ export default function ShopClient({
                   </button>
                   {feedbackMessage ? (
                     <p
-                      className="feedback-message"
-                      style={{
-                        color:
-                          feedbackMessage.type === "error" ? "#a33" : "#2a3d31",
-                      }}
+                      className={`feedback-message ${
+                        feedbackMessage.type === "error"
+                          ? "is-error"
+                          : "is-success"
+                      }`}
                     >
                       {feedbackMessage.text}
                     </p>
@@ -2083,44 +2165,40 @@ export default function ShopClient({
         <div
           className="modal-overlay"
           role="presentation"
-          onClick={() => setTrackModal(false)}
+          onClick={() => closeTrackModal()}
         >
           <div
-            className="modal"
+            className="modal track-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="track-modal-title"
+            ref={trackDialogRef}
+            tabIndex={-1}
             onClick={(event) => event.stopPropagation()}
-            style={{ maxWidth: 420 }}
           >
             <div className="modal-header">
               <h3 id="track-modal-title">Track Your Order</h3>
               <button
                 type="button"
                 className="light-button modal-close"
-                onClick={() => setTrackModal(false)}
+                onClick={() => closeTrackModal()}
               >
                 Close
               </button>
             </div>
             <div className="modal-body">
-              <form
-                style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}
-                onSubmit={handleTrackSubmit}
-              >
+              <form className="track-form" onSubmit={handleTrackSubmit}>
                 <input
                   type="text"
                   value={trackId}
                   onChange={(e) => setTrackId(e.target.value)}
                   placeholder="Order ID (e.g. 21bd4)"
                   aria-label="Order ID"
-                  style={{ flex: 1, minWidth: 0 }}
                 />
                 <button
                   className="secondary-button"
                   type="submit"
                   disabled={trackLoading}
-                  style={{ flexShrink: 0 }}
                 >
                   {trackLoading ? "…" : "Track"}
                 </button>
@@ -2128,27 +2206,16 @@ export default function ShopClient({
 
               {trackMessage && (
                 <p
-                  className="form-message"
-                  style={{
-                    color: trackMessage.type === "error" ? "#a33" : "#2a3d31",
-                    marginBottom: "0.75rem",
-                  }}
+                  className={`form-message track-message ${
+                    trackMessage.type === "error" ? "is-error" : "is-success"
+                  }`}
                 >
                   {trackMessage.text}
                 </p>
               )}
 
               {trackResult && (
-                <div
-                  className="modal-card"
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 0,
-                    padding: 0,
-                    overflow: "hidden",
-                  }}
-                >
+                <div className="modal-card track-result-card">
                   {[
                     [
                       "Order ID",
@@ -2166,29 +2233,11 @@ export default function ShopClient({
                     // ["Total", formatAmount(trackResult.total)],
                     ["Placed", formatDate(trackResult.createdAt)],
                   ].map(([label, value], i) => (
-                    <div
-                      key={label}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "0.55rem 0.9rem",
-                        background: i % 2 === 1 ? "#faf8f5" : "#fff",
-                        borderBottom: i < 5 ? "1px solid #f0ece6" : "none",
-                        fontSize: "0.88rem",
-                      }}
-                    >
-                      <span
-                        className="table-cell-muted"
-                        style={{
-                          fontSize: "0.78rem",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.03em",
-                        }}
-                      >
+                    <div key={label} className="track-result-row">
+                      <span className="table-cell-muted track-result-label">
                         {label}
                       </span>
-                      <span style={{ fontWeight: 500, color: "#222" }}>
+                      <span className="track-result-value">
                         {value}
                       </span>
                     </div>

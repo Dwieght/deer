@@ -1,16 +1,45 @@
 import { prisma } from "../../lib/prisma";
 import ShopClient from "./shop-client";
+import { buildFeedbackPayload } from "./shop-data.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function ShopPage({ searchParams }) {
   const [products, paymentQrs, feedbacks] = await Promise.all([
-    prisma.product.findMany({ orderBy: { createdAt: "desc" } }),
-    prisma.paymentQrCode.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.product.findMany({
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        price: true,
+        imageUrl: true,
+        imageUrls: true,
+        sizes: true,
+        description: true,
+      },
+    }),
+    prisma.paymentQrCode.findMany({
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        title: true,
+        note: true,
+        imageUrl: true,
+      },
+    }),
     prisma.productFeedback.findMany({
       where: { status: "APPROVED" },
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        productId: true,
+        fullName: true,
+        rating: true,
+        message: true,
+        createdAt: true,
+      },
     }),
   ]);
 
@@ -38,28 +67,15 @@ export default async function ShopPage({ searchParams }) {
     imageUrl: qr.imageUrl,
   }));
 
-  const feedbackByProduct = feedbacks.reduce((acc, item) => {
-    if (!item.productId) {
-      return acc;
-    }
-    if (!acc[item.productId]) {
-      acc[item.productId] = [];
-    }
-    acc[item.productId].push({
-      id: item.id,
-      fullName: item.fullName,
-      rating: item.rating,
-      message: item.message,
-      createdAt: item.createdAt,
-    });
-    return acc;
-  }, {});
+  const { feedbackSummaryByProduct, feedbackPreviewByProduct } =
+    buildFeedbackPayload(feedbacks);
 
   return (
     <ShopClient
       products={safeProducts}
       paymentQrs={safeQrs}
-      feedbackByProduct={feedbackByProduct}
+      feedbackSummaryByProduct={feedbackSummaryByProduct}
+      feedbackPreviewByProduct={feedbackPreviewByProduct}
       initialProductId={initialProductId}
       initialFeedback={initialFeedback}
     />

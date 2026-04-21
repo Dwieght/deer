@@ -140,6 +140,14 @@ function readFileAsDataUrl(file) {
   });
 }
 
+function truncateText(text, maxLength = 220) {
+  const value = String(text || "").trim();
+  if (!value || value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, maxLength).trimEnd()}…`;
+}
+
 function downloadLetterPdf(letter) {
   const win = window.open("", "_blank", "width=700,height=900");
   if (!win) {
@@ -183,11 +191,75 @@ function FormMessage({ message }) {
   }
   return (
     <p
-      className="form-message"
-      style={{ color: message.type === "error" ? "#a33" : "#2a3d31" }}
+      className={`form-message ${message.type === "error" ? "is-error" : "is-success"}`}
     >
       {message.text}
     </p>
+  );
+}
+
+function getFocusableElements(container) {
+  if (!container) {
+    return [];
+  }
+
+  return Array.from(
+    container.querySelectorAll(
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter(
+    (element) =>
+      !element.hasAttribute("disabled") &&
+      element.getAttribute("aria-hidden") !== "true",
+  );
+}
+
+function trapFocus(event, container) {
+  if (event.key !== "Tab" || !container) {
+    return;
+  }
+
+  const focusableElements = getFocusableElements(container);
+  if (!focusableElements.length) {
+    event.preventDefault();
+    container.focus();
+    return;
+  }
+
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements[focusableElements.length - 1];
+
+  if (event.shiftKey && document.activeElement === firstElement) {
+    event.preventDefault();
+    lastElement.focus();
+    return;
+  }
+
+  if (!event.shiftKey && document.activeElement === lastElement) {
+    event.preventDefault();
+    firstElement.focus();
+  }
+}
+
+function DisclosureCard({
+  id,
+  summary,
+  renderContent,
+  className = "",
+  defaultOpen = false,
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <details
+      id={id}
+      className={["disclosure-card", className].filter(Boolean).join(" ")}
+      open={isOpen}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+    >
+      <summary>{summary}</summary>
+      {isOpen ? <div className="disclosure-body">{renderContent()}</div> : null}
+    </details>
   );
 }
 
@@ -278,6 +350,12 @@ export default function HomeClient({
   const [activeQrId, setActiveQrId] = useState(paymentQrs[0]?.id || "");
   const [qrModal, setQrModal] = useState({ open: false, qr: null });
   const [copyLabel, setCopyLabel] = useState("Copy Link");
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [isCarouselPaused, setIsCarouselPaused] = useState(false);
+  const qrModalRef = useRef(null);
+  const lightboxRef = useRef(null);
+  const lastFocusedElementRef = useRef(null);
 
   const galleryLists = useMemo(
     () => ({
@@ -330,19 +408,93 @@ export default function HomeClient({
     }
     const handleKey = (event) => {
       if (event.key === "Escape") {
-        setQrModal({ open: false, qr: null });
+        closeQrModal();
+        return;
       }
+
+      trapFocus(event, qrModalRef.current);
     };
+
+    const focusTarget =
+      getFocusableElements(qrModalRef.current)[0] || qrModalRef.current;
+    focusTarget?.focus();
+
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [qrModal.open]);
 
   useEffect(() => {
+    if (!("matchMedia" in window)) {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncPreference = (event) => {
+      setPrefersReducedMotion(event.matches);
+    };
+
+    setPrefersReducedMotion(mediaQuery.matches);
+
+    if ("addEventListener" in mediaQuery) {
+      mediaQuery.addEventListener("change", syncPreference);
+      return () => mediaQuery.removeEventListener("change", syncPreference);
+    }
+
+    mediaQuery.addListener(syncPreference);
+    return () => mediaQuery.removeListener(syncPreference);
+  }, []);
+
+  useEffect(() => {
+    if (
+      prefersReducedMotion ||
+      isCarouselPaused ||
+      CAROUSEL_SLIDES.length <= 1
+    ) {
+      return undefined;
+    }
+
     const interval = setInterval(() => {
       setCarouselIndex((prev) => (prev + 1) % CAROUSEL_SLIDES.length);
     }, 7000);
     return () => clearInterval(interval);
-  }, []);
+  }, [prefersReducedMotion, isCarouselPaused]);
+
+  useEffect(() => {
+    if (!moreMenuOpen) {
+      return undefined;
+    }
+
+    const handleKey = (event) => {
+      if (event.key === "Escape") {
+        setMoreMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [moreMenuOpen]);
+
+  useEffect(() => {
+    if (!lightbox.open) {
+      return undefined;
+    }
+
+    const handleKey = (event) => {
+      if (event.key === "Escape") {
+        closeLightbox();
+        return;
+      }
+
+      trapFocus(event, lightboxRef.current);
+    };
+
+    const focusTarget =
+      getFocusableElements(lightboxRef.current)[0] || lightboxRef.current;
+    focusTarget?.focus();
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [lightbox.open]);
 
   useEffect(() => {
     if (!paymentQrs.length) {
@@ -677,26 +829,82 @@ export default function HomeClient({
     ? normalizeQrImageUrl(activeQr.imageUrl)
     : "";
 
+  const restoreLastFocus = () => {
+    const previousFocus = lastFocusedElementRef.current;
+    if (previousFocus && typeof previousFocus.focus === "function") {
+      requestAnimationFrame(() => {
+        previousFocus.focus();
+      });
+    }
+    lastFocusedElementRef.current = null;
+  };
+
+  const closeQrModal = () => {
+    setQrModal({ open: false, qr: null });
+    restoreLastFocus();
+  };
+
   const openQrModal = (qr) => {
     if (!qr) {
       return;
     }
+    lastFocusedElementRef.current = document.activeElement;
     setActiveQrId(qr.id);
     setQrModal({ open: true, qr });
   };
 
   const handleLightboxOpen = (src, caption) => {
+    lastFocusedElementRef.current = document.activeElement;
     setLightbox({ open: true, src, caption });
   };
 
-  const handleLightboxClose = () => {
+  const closeLightbox = () => {
     setLightbox({ open: false, src: "", caption: "" });
+    restoreLastFocus();
   };
+
+  const featuredUpdates = updates.slice(0, 3);
+  const featuredLetters = letters.slice(0, 3);
+  const featuredAnnouncements = announcements.slice(0, 3);
+  const featuredGifts = gifts.slice(0, 2);
+  const featuredVideoCollections = videoCollections.slice(0, 2);
+  const featuredQrCards = paymentQrs.slice(0, 2);
+  const previewGalleryLists = {
+    photos: galleryLists.photos.slice(0, 4),
+    videos: galleryLists.videos.slice(0, 3),
+    art: galleryLists.art.slice(0, 4),
+  };
+  const activeGalleryPreview = previewGalleryLists[activeGalleryTab];
+  const activeGalleryFull = galleryLists[activeGalleryTab];
+  const contributorCount = new Set(
+    [
+      ...galleryLists.photos,
+      ...galleryLists.videos,
+      ...galleryLists.art,
+    ].map((item) => item.name),
+  ).size;
+  const mediaItemCount =
+    galleryLists.photos.length +
+    galleryLists.videos.length +
+    galleryLists.art.length;
+  const videoItemCount = videoCollections.reduce(
+    (total, collection) => total + collection.items.length,
+    0,
+  );
+  const latestUpdate = featuredUpdates[0] || null;
+  const latestAnnouncement = featuredAnnouncements[0] || null;
+  const storyPreview = about?.story
+    ? truncateText(about.story, 260)
+    : "Deer Army is a fan-led home for thoughtful support, shared memories, and community-led surprises.";
+  const missionPreview = about?.mission
+    ? truncateText(about.mission, 180)
+    : "We keep the fandom welcoming, organized, and full of genuine care for Tommy & Ghazel.";
+  const aboutGuidelines = about?.guidelines?.slice(0, 3) || [];
 
   return (
     <>
       <div className="bg-texture" aria-hidden="true" />
-      <header className="site-header">
+      <header className="site-header landing-header">
         <a className="skip-link" href="#home">
           Skip to content
         </a>
@@ -713,48 +921,46 @@ export default function HomeClient({
         <nav className="site-nav" aria-label="Primary">
           <a href="#home">Home</a>
           <a href="#updates">Updates</a>
-          <a href="#letters">Fan Letters</a>
-          <a href="#gifts">Gifts &amp; Surprises</a>
+          <a href="#letters">Letters</a>
+          <a href="#gallery">Gallery</a>
+          <a href="#explore">Explore</a>
           <a href="/shop">Shop</a>
           <a href="#support">Support</a>
-          <div className="nav-dropdown">
-            <button
+          <details
+            className="nav-dropdown"
+            open={moreMenuOpen}
+            onToggle={(event) => setMoreMenuOpen(event.currentTarget.open)}
+          >
+            <summary
               className="nav-dropdown-toggle"
-              type="button"
-              aria-haspopup="menu"
+              aria-controls="landing-more-nav"
             >
               More
-            </button>
-            <div className="nav-dropdown-menu" role="menu">
-              <a role="menuitem" href="#videos">
-                Videos
+            </summary>
+            <div className="nav-dropdown-menu" id="landing-more-nav">
+              <a href="#videos" onClick={() => setMoreMenuOpen(false)}>
+                Storybook
               </a>
-              <a role="menuitem" href="#gallery">
-                Fan Gallery
-              </a>
-              <a role="menuitem" href="#join">
+              <a href="#join" onClick={() => setMoreMenuOpen(false)}>
                 Join
               </a>
-              <a role="menuitem" href="#announcements">
+              <a href="#announcements" onClick={() => setMoreMenuOpen(false)}>
                 Announcements
               </a>
-              <a role="menuitem" href="#about">
+              <a href="#about" onClick={() => setMoreMenuOpen(false)}>
                 About Us
               </a>
-              <a role="menuitem" href="#contact">
+              <a href="#contact" onClick={() => setMoreMenuOpen(false)}>
                 Contact
               </a>
-              <a role="menuitem" href="/birthday">
+              <a href="/birthday" onClick={() => setMoreMenuOpen(false)}>
                 Birthday
               </a>
-              <a role="menuitem" href="/login">
+              <a href="/login" onClick={() => setMoreMenuOpen(false)}>
                 Login
               </a>
-              <a role="menuitem" href="/dashboard">
-                Dashboard
-              </a>
             </div>
-          </div>
+          </details>
         </nav>
 
         <div className="nav-actions">
@@ -770,6 +976,8 @@ export default function HomeClient({
             className="menu-toggle"
             type="button"
             aria-label="Open menu"
+            aria-expanded={mobileMenuOpen}
+            aria-controls="landing-mobile-menu"
             onClick={() => setMobileMenuOpen((open) => !open)}
           >
             <span />
@@ -779,6 +987,7 @@ export default function HomeClient({
       </header>
 
       <aside
+        id="landing-mobile-menu"
         className={`mobile-menu ${mobileMenuOpen ? "is-open" : ""}`}
         aria-label="Mobile"
       >
@@ -789,10 +998,13 @@ export default function HomeClient({
           Updates
         </a>
         <a href="#letters" onClick={() => setMobileMenuOpen(false)}>
-          Fan Letters
+          Letters
         </a>
-        <a href="#gifts" onClick={() => setMobileMenuOpen(false)}>
-          Gifts &amp; Surprises
+        <a href="#gallery" onClick={() => setMobileMenuOpen(false)}>
+          Gallery
+        </a>
+        <a href="#explore" onClick={() => setMobileMenuOpen(false)}>
+          Explore
         </a>
         <a href="/shop" onClick={() => setMobileMenuOpen(false)}>
           Shop
@@ -804,10 +1016,7 @@ export default function HomeClient({
           <summary>More</summary>
           <div className="mobile-dropdown-links">
             <a href="#videos" onClick={() => setMobileMenuOpen(false)}>
-              Videos
-            </a>
-            <a href="#gallery" onClick={() => setMobileMenuOpen(false)}>
-              Fan Gallery
+              Storybook
             </a>
             <a href="#join" onClick={() => setMobileMenuOpen(false)}>
               Join
@@ -827,9 +1036,6 @@ export default function HomeClient({
             <a href="/login" onClick={() => setMobileMenuOpen(false)}>
               Login
             </a>
-            <a href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-              Dashboard
-            </a>
           </div>
         </details>
         {activeQrImage ? (
@@ -845,44 +1051,45 @@ export default function HomeClient({
         ) : null}
       </aside>
 
-      <main>
-        <section className="hero" id="home">
-          <div className="hero-copy reveal">
-            <p className="eyebrow">Welcome, Tommy &amp; Ghazel</p>
-            <h1>A warm digital home for the Deer Army community 🦌</h1>
+      <main className="landing-shell">
+        <section className="hero landing-hero" id="home">
+          <div className="hero-copy landing-hero-copy reveal">
+            <p className="eyebrow">Tommy &amp; Ghazel • Deer Army</p>
+            <h1>A calmer, brighter front door for everyone who keeps showing up.</h1>
             <p className="lead">
-              This is our shared space to celebrate your kindness, talent, and
-              laughter. Together we keep the Deer Army glowing with love, hope,
-              and unity.
+              Deer Army is where updates, fan letters, gallery moments, and
+              support projects stay organized in one warm community home.
             </p>
             <div className="hero-actions">
-              <a className="primary-button" href="#letters">
-                Read Fan Letters
+              <a className="primary-button" href="#updates">
+                Explore the community
               </a>
-              <a className="secondary-button" href="#gallery">
-                Explore Gallery
+              <a className="ghost-button" href="#letters">
+                Read fan letters
               </a>
-              <a className="ghost-button" href="#contact">
-                Submit Love
+              <a className="secondary-button" href="/shop">
+                Visit the shop
               </a>
             </div>
-            <div className="hero-meta">
-              <div className="meta-card">
-                <h3>Deer Army Heartbeat</h3>
-                <p>
-                  Soft greens, warm hearts, and a community that always shows
-                  up.
-                </p>
-              </div>
-              <div className="meta-card">
-                <h3>Latest Love Notes</h3>
-                <p>
-                  Fresh updates and announcements curated by the community team.
-                </p>
-              </div>
+            <div className="landing-signal-grid">
+              <article className="landing-signal-card">
+                <span className="signal-label">Approved letters</span>
+                <strong>{letters.length}</strong>
+                <p>Love notes already hanging on the Deer Army wall.</p>
+              </article>
+              <article className="landing-signal-card">
+                <span className="signal-label">Community contributors</span>
+                <strong>{contributorCount}</strong>
+                <p>Fans who have already shared photos, edits, and art.</p>
+              </article>
+              <article className="landing-signal-card">
+                <span className="signal-label">Storybook moments</span>
+                <strong>{gifts.length + videoItemCount}</strong>
+                <p>Gift highlights and clips ready for a quick catch-up.</p>
+              </article>
             </div>
           </div>
-          <div className="hero-media reveal">
+          <div className="hero-media landing-hero-media reveal">
             <div className="carousel">
               <button
                 className="carousel-control prev"
@@ -910,7 +1117,8 @@ export default function HomeClient({
                     <img
                       src={slide.src}
                       alt={slide.alt}
-                      loading="lazy"
+                      loading={index === 0 ? "eager" : "lazy"}
+                      fetchPriority={index === 0 ? "high" : undefined}
                       className="lightbox-trigger"
                       onClick={() =>
                         handleLightboxOpen(slide.src, slide.caption)
@@ -932,809 +1140,1087 @@ export default function HomeClient({
               >
                 <span>&rarr;</span>
               </button>
-            </div>
-            <div className="share-panel">
-              <p>Share the Deer Army love:</p>
-              <div className="share-buttons">
-                {SHARE_OPTIONS.map((option) => (
-                  <button
-                    key={option.type}
-                    className="share-button"
-                    type="button"
-                    onClick={() => handleShare(option.type)}
-                  >
-                    {option.type === "copy" ? copyLabel : option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="section" id="updates">
-          <div className="section-header reveal">
-            <div>
-              <h2>Latest Updates &amp; Announcements</h2>
-              <p>Fresh moments, new projects, and community notes.</p>
-            </div>
-            <img
-              className="section-icon"
-              src="/assets/deer-mark.svg"
-              alt="Deer icon"
-            />
-          </div>
-          <div className="card-grid">
-            {updates.length === 0 ? (
-              <p className="empty-state">No updates yet.</p>
-            ) : null}
-            {updates.map((update, index) => (
-              <article key={`${update.title}-${index}`} className="card">
-                <span className="badge">{formatDate(update.date)}</span>
-                <h3>{update.title}</h3>
-                <p>{update.text}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="section" id="letters">
-          <div className="section-header reveal">
-            <div>
-              <h2>Fan Letters</h2>
-              <p>
-                Every message is a hug for Tommy &amp; Ghazel. Read in English
-                and Arabic.
-              </p>
-            </div>
-            <img
-              className="section-icon"
-              src="/assets/deer-mark.svg"
-              alt="Deer icon"
-            />
-          </div>
-
-          <div className="letters-grid">
-            {letters.map((letter, index) => (
-              <article key={`${letter.name}-${index}`} className="letter-card">
-                <p className="letter-name">{letter.name}</p>
-                <p className="letter-message">{letter.messageEn}</p>
-                {letter.messageAr ? (
-                  <p className="letter-message arabic" lang="ar" dir="rtl">
-                    {letter.messageAr}
+              <div className="carousel-footer">
+                {prefersReducedMotion ? (
+                  <p className="carousel-note">
+                    Autoplay is off because your device prefers reduced motion.
                   </p>
-                ) : null}
-                <div className="letter-actions">
-                  {letter.tiktok ? (
-                    <a
-                      className="letter-link"
-                      href={letter.tiktok}
-                      target="_blank"
-                      rel="noopener"
-                    >
-                      TikTok
-                    </a>
-                  ) : null}
+                ) : (
                   <button
-                    className="secondary-button"
+                    className="light-button carousel-toggle"
                     type="button"
-                    onClick={() => downloadLetterPdf(letter)}
+                    aria-pressed={isCarouselPaused}
+                    onClick={() => setIsCarouselPaused((paused) => !paused)}
                   >
-                    Download PDF
+                    {isCarouselPaused ? "Resume autoplay" : "Pause autoplay"}
                   </button>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <div className="form-card reveal">
-            <h3>Submit a New Letter</h3>
-            <form onSubmit={handleLetterSubmit}>
-              <div className="form-row">
-                <label htmlFor="letter-name">
-                  Fan Name
-                  <input
-                    id="letter-name"
-                    type="text"
-                    name="name"
-                    placeholder="Your name"
-                    required
-                  />
-                </label>
-                <label htmlFor="letter-tiktok">
-                  TikTok Link
-                  <input
-                    id="letter-tiktok"
-                    type="url"
-                    name="tiktok"
-                    placeholder="https://www.tiktok.com/@yourhandle"
-                  />
-                </label>
+                )}
               </div>
-              <div className="form-row">
-                <label htmlFor="letter-message-en">
-                  Message (English)
-                  <textarea
-                    id="letter-message-en"
-                    name="messageEn"
-                    rows="4"
-                    placeholder="Write your letter in English"
-                    required
-                  ></textarea>
-                </label>
-                <label htmlFor="letter-message-ar">
-                  Message (Arabic)
-                  <textarea
-                    id="letter-message-ar"
-                    name="messageAr"
-                    rows="4"
-                    placeholder="اكتب رسالتك بالعربية"
-                    className="arabic-input"
-                  ></textarea>
-                </label>
-              </div>
-              <button className="primary-button" type="submit">
-                Send Letter
-              </button>
-              <p className="form-note">
-                Letters are reviewed before appearing on the homepage.
-              </p>
-              <FormMessage message={letterMessage} />
-            </form>
-          </div>
-        </section>
-
-        <section className="section" id="gifts">
-          <div className="section-header reveal">
-            <div>
-              <h2>Gifts &amp; Surprises Timeline</h2>
-              <p>
-                From flowers to groceries, every surprise tells a story of love.
-              </p>
             </div>
-            <img
-              className="section-icon"
-              src="/assets/deer-mark.svg"
-              alt="Deer icon"
-            />
-          </div>
-
-          <div className="timeline">
-            {gifts.map((gift, index) => (
-              <article key={`${gift.title}-${index}`} className="timeline-item">
-                <div className="timeline-media">
-                  {gift.image ? (
-                    <img
-                      src={normalizeImageUrl(gift.image)}
-                      alt={gift.title}
-                      loading="lazy"
-                      className="lightbox-trigger"
-                      onClick={() =>
-                        handleLightboxOpen(
-                          normalizeImageUrl(gift.image),
-                          gift.title,
-                        )
-                      }
-                    />
-                  ) : null}
-                </div>
-                <div className="timeline-content">
-                  <span className="badge">{formatDate(gift.date)}</span>
-                  <h3>{gift.title}</h3>
-                  <p>{gift.text}</p>
-                  {gift.video ? (
-                    <div className="timeline-video">
-                      <iframe
-                        src={gift.video}
-                        title={`${gift.title} video`}
-                        loading="lazy"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      ></iframe>
-                    </div>
-                  ) : null}
-                </div>
+            <div className="landing-hero-sidecar">
+              <article className="landing-highlight-card">
+                <p className="section-kicker">Community pulse</p>
+                {latestUpdate ? (
+                  <>
+                    <span className="badge">{formatDate(latestUpdate.date)}</span>
+                    <h3>{latestUpdate.title}</h3>
+                    <p>{truncateText(latestUpdate.text, 140)}</p>
+                  </>
+                ) : (
+                  <>
+                    <h3>Fresh stories will land here soon.</h3>
+                    <p>
+                      The homepage is ready for the next Deer Army highlight,
+                      celebration, or surprise project.
+                    </p>
+                  </>
+                )}
+                <ul className="landing-highlight-list">
+                  <li>
+                    <strong>{updates.length}</strong>
+                    <span>curated updates and notes</span>
+                  </li>
+                  <li>
+                    <strong>{mediaItemCount}</strong>
+                    <span>gallery moments archived</span>
+                  </li>
+                  <li>
+                    <strong>{paymentQrs.length}</strong>
+                    <span>support channels available</span>
+                  </li>
+                </ul>
               </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="section" id="videos">
-          <div className="section-header reveal">
-            <div>
-              <h2>Deer Army Video Library</h2>
-              <p>
-                Behind-the-scenes moments and community highlights, ready to
-                watch.
-              </p>
-            </div>
-            <img
-              className="section-icon"
-              src="/assets/deer-mark.svg"
-              alt="Deer icon"
-            />
-          </div>
-          {videoCollections.length === 0 ? (
-            <p className="empty-state">No videos yet.</p>
-          ) : null}
-          {videoCollections.map((collection) => {
-            if (collection.layout === "CAROUSEL") {
-              return (
-                <VideoCarousel
-                  key={collection.id || collection.title}
-                  collection={collection}
-                />
-              );
-            }
-            return (
-              <div
-                key={collection.id || collection.title}
-                className="video-collection reveal"
-              >
-                <h3>{collection.title}</h3>
-                {collection.description ? (
-                  <p>{collection.description}</p>
-                ) : null}
-                <div className="card-grid">
-                  {collection.items.map((item, index) => (
-                    <article key={`${item.title}-${index}`} className="card">
-                      <h3>{item.title}</h3>
-                      <div className="timeline-video">
-                        <iframe
-                          src={item.url}
-                          title={item.title}
-                          loading="lazy"
-                          allow="autoplay; encrypted-media; fullscreen"
-                          allowFullScreen
-                        ></iframe>
-                      </div>
-                    </article>
+              <div className="share-panel landing-share-panel">
+                <p>Share the Deer Army home:</p>
+                <div className="share-buttons">
+                  {SHARE_OPTIONS.map((option) => (
+                    <button
+                      key={option.type}
+                      className="share-button"
+                      type="button"
+                      onClick={() => handleShare(option.type)}
+                    >
+                      {option.type === "copy" ? copyLabel : option.label}
+                    </button>
                   ))}
                 </div>
               </div>
-            );
-          })}
-        </section>
-
-        <section className="section" id="gallery">
-          <div className="section-header reveal">
-            <div>
-              <h2>Fan Gallery</h2>
-              <p>Photos, edits, and fan art organized by contributor name.</p>
             </div>
-            <img
-              className="section-icon"
-              src="/assets/deer-mark.svg"
-              alt="Deer icon"
-            />
-          </div>
-
-          <div className="gallery-controls">
-            <button
-              className={`tab-button ${activeGalleryTab === "photos" ? "is-active" : ""}`}
-              type="button"
-              onClick={() => setActiveGalleryTab("photos")}
-            >
-              Photos
-            </button>
-            <button
-              className={`tab-button ${activeGalleryTab === "videos" ? "is-active" : ""}`}
-              type="button"
-              onClick={() => setActiveGalleryTab("videos")}
-            >
-              Video Edits
-            </button>
-            <button
-              className={`tab-button ${activeGalleryTab === "art" ? "is-active" : ""}`}
-              type="button"
-              onClick={() => setActiveGalleryTab("art")}
-            >
-              Fan Art
-            </button>
-          </div>
-
-          {activeGalleryTab === "photos" ? (
-            <div className="gallery-panel">
-              {galleryLists.photos.length === 0 ? (
-                <p className="empty-state">No photos yet.</p>
-              ) : null}
-              <div className="gallery-grid">
-                {galleryLists.photos.map((item, index) => (
-                  <article
-                    key={`photo-${item.name}-${item.caption}-${index}`}
-                    className="gallery-card"
-                  >
-                    <img
-                      src={normalizeImageUrl(item.src)}
-                      alt={item.caption}
-                      loading="lazy"
-                      className="lightbox-trigger"
-                      onClick={() =>
-                        handleLightboxOpen(
-                          normalizeImageUrl(item.src),
-                          item.caption,
-                        )
-                      }
-                    />
-                    <div className="gallery-info">
-                      <h4>{item.caption}</h4>
-                      <p>By {item.name}</p>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {activeGalleryTab === "videos" ? (
-            <div className="gallery-panel">
-              {galleryLists.videos.length === 0 ? (
-                <p className="empty-state">No video edits yet.</p>
-              ) : null}
-              <div className="gallery-grid">
-                {galleryLists.videos.map((item, index) => (
-                  <article
-                    key={`video-${item.name}-${item.title}-${index}`}
-                    className="gallery-card"
-                  >
-                    <iframe
-                      src={item.embed}
-                      title={item.title}
-                      loading="lazy"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    ></iframe>
-                    <div className="gallery-info">
-                      <h4>{item.title}</h4>
-                      <p>By {item.name}</p>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {activeGalleryTab === "art" ? (
-            <div className="gallery-panel">
-              {galleryLists.art.length === 0 ? (
-                <p className="empty-state">No fan art yet.</p>
-              ) : null}
-              <div className="gallery-grid">
-                {galleryLists.art.map((item, index) => (
-                  <article
-                    key={`art-${item.name}-${item.caption}-${index}`}
-                    className="gallery-card"
-                  >
-                    <img
-                      src={normalizeImageUrl(item.src)}
-                      alt={item.caption}
-                      loading="lazy"
-                      className="lightbox-trigger"
-                      onClick={() =>
-                        handleLightboxOpen(
-                          normalizeImageUrl(item.src),
-                          item.caption,
-                        )
-                      }
-                    />
-                    <div className="gallery-info">
-                      <h4>{item.caption}</h4>
-                      <p>By {item.name}</p>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="form-card reveal">
-            <h3>Share Your Creativity</h3>
-            <form onSubmit={handleGallerySubmit}>
-              <div className="form-row">
-                <label htmlFor="gallery-contributor">
-                  Contributor Name
-                  <input
-                    id="gallery-contributor"
-                    type="text"
-                    name="contributor"
-                    placeholder="Your name"
-                    required
-                  />
-                </label>
-                <label htmlFor="gallery-category">
-                  Category
-                  <select
-                    id="gallery-category"
-                    name="category"
-                    defaultValue="photos"
-                    required
-                  >
-                    <option value="photos">Photo</option>
-                    <option value="videos">Video Edit</option>
-                    <option value="art">Fan Art</option>
-                  </select>
-                </label>
-              </div>
-              <div className="form-row">
-                <label htmlFor="gallery-file">
-                  Photo/Fan Art Upload
-                  <input
-                    id="gallery-file"
-                    type="file"
-                    name="file"
-                    accept="image/*"
-                  />
-                </label>
-                <label htmlFor="gallery-video">
-                  Video URL (YouTube/TikTok)
-                  <input
-                    id="gallery-video"
-                    type="url"
-                    name="videoUrl"
-                    placeholder="https://www.youtube.com/watch?v=..."
-                  />
-                </label>
-              </div>
-              <label htmlFor="gallery-caption">
-                Caption
-                <input
-                  id="gallery-caption"
-                  type="text"
-                  name="caption"
-                  placeholder="Add a short caption"
-                  required
-                />
-              </label>
-              <button className="primary-button" type="submit">
-                Add to Gallery
-              </button>
-              <p className="form-note">
-                Submissions are reviewed before appearing on the homepage.
-              </p>
-              <FormMessage message={galleryMessage} />
-            </form>
           </div>
         </section>
 
-        <section className="section" id="support">
-          <div className="section-header reveal">
+        <section className="section landing-section" id="updates">
+          <div className="section-header reveal landing-section-header">
             <div>
-              <h2>Support the Deer Army</h2>
+              <p className="section-kicker">Fresh from the fandom</p>
+              <h2>Start with what the community is doing now</h2>
               <p>
-                Scan the QR code to send a gift, then share your reference
-                number.
+                Catch up on the latest notes, celebrations, and project updates
+                before you dive deeper.
               </p>
             </div>
-            <img
-              className="section-icon"
-              src="/assets/deer-mark.svg"
-              alt="Deer icon"
-            />
+            <a className="ghost-button" href="#announcements">
+              Open the community board
+            </a>
           </div>
-          <div className="support-grid">
-            <div className="qr-grid">
-              {paymentQrs.length === 0 ? (
-                <div className="contact-card qr-card reveal">
-                  <h3>Deer Army QR Code</h3>
-                  <p className="empty-state">
-                    QR code is not available yet. Please check back soon.
+          {featuredUpdates.length === 0 ? (
+            <div className="landing-empty-card">
+              <h3>New community updates are on the way.</h3>
+              <p>
+                When the next Deer Army project, celebration, or thank-you note
+                goes live, it will show up here first.
+              </p>
+            </div>
+          ) : (
+            <div className="landing-updates-layout">
+              <article className="landing-update-spotlight">
+                <span className="badge">{formatDate(featuredUpdates[0].date)}</span>
+                <h3>{featuredUpdates[0].title}</h3>
+                <p>{featuredUpdates[0].text}</p>
+              </article>
+              <div className="landing-update-list">
+                {featuredUpdates.slice(1).map((update, index) => (
+                  <article
+                    key={`${update.title}-${index}`}
+                    className="landing-update-card"
+                  >
+                    <span className="badge">{formatDate(update.date)}</span>
+                    <h3>{update.title}</h3>
+                    <p>{truncateText(update.text, 140)}</p>
+                  </article>
+                ))}
+                {latestAnnouncement ? (
+                  <article className="landing-update-card landing-note-card">
+                    <p className="section-kicker">Board note</p>
+                    <h3>{latestAnnouncement.title}</h3>
+                    <p>{truncateText(latestAnnouncement.text, 140)}</p>
+                  </article>
+                ) : null}
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="section landing-section" id="letters">
+          <div className="section-header reveal landing-section-header">
+            <div>
+              <p className="section-kicker">Love notes</p>
+              <h2>Fan letters stay at the emotional center of this home</h2>
+              <p>
+                A few featured messages live up front, while the full letter wall
+                stays tucked behind a quieter reveal.
+              </p>
+            </div>
+          </div>
+          <div className="landing-two-column">
+            <div className="letters-grid landing-preview-grid">
+              {featuredLetters.length === 0 ? (
+                <div className="landing-empty-card">
+                  <h3>No approved letters yet.</h3>
+                  <p>
+                    The first fan letter will appear here once the Deer Army team
+                    approves it.
                   </p>
                 </div>
               ) : (
-                paymentQrs.map((qr) => (
+                featuredLetters.map((letter, index) => (
                   <article
-                    key={qr.id}
-                    className={`contact-card qr-card reveal ${qr.id === activeQrId ? "is-selected" : ""}`}
+                    key={`${letter.name}-${index}`}
+                    className={`letter-card ${index === 0 ? "landing-featured-letter" : ""}`}
                   >
-                    <h3>{qr.title || "Deer Army QR Code"}</h3>
-                    {qr.note ? <p>{qr.note}</p> : null}
-                    <img
-                      src={getQrPreviewUrl(qr.imageUrl)}
-                      alt="Deer Army payment QR code"
-                      className="qr-image"
-                      onError={(event) =>
-                        applyImageFallback(
-                          event,
-                          normalizeQrImageUrl(qr.imageUrl),
-                        )
-                      }
-                    />
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() => openQrModal(qr)}
-                    >
-                      Use this QR
-                    </button>
+                    <p className="letter-name">{letter.name}</p>
+                    <p className="letter-message">{letter.messageEn}</p>
+                    {letter.messageAr ? (
+                      <p className="letter-message arabic" lang="ar" dir="rtl">
+                        {letter.messageAr}
+                      </p>
+                    ) : null}
+                    <div className="letter-actions">
+                      {letter.tiktok ? (
+                        <a
+                          className="letter-link"
+                          href={letter.tiktok}
+                          target="_blank"
+                          rel="noopener"
+                        >
+                          TikTok
+                        </a>
+                      ) : null}
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        onClick={() => downloadLetterPdf(letter)}
+                      >
+                        Download PDF
+                      </button>
+                    </div>
                   </article>
                 ))
               )}
             </div>
-            <div className="form-card reveal">
-              <h3>Share Your Payment Reference</h3>
-              <form onSubmit={handlePaymentSubmit}>
-                {paymentQrs.length > 1 ? (
-                  <label htmlFor="payment-qr-select">
-                    Select QR
-                    <select
-                      id="payment-qr-select"
-                      name="qrCodeId"
-                      value={activeQrId}
-                      onChange={(event) => setActiveQrId(event.target.value)}
-                      required
-                    >
-                      {paymentQrs.map((qr) => (
-                        <option key={qr.id} value={qr.id}>
-                          {qr.title || "Deer Army QR Code"}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : (
-                  <input type="hidden" name="qrCodeId" value={activeQrId} />
+            <aside className="landing-sidebar-card">
+              <p className="section-kicker">Join the letter wall</p>
+              <h3>Send a note that feels like home.</h3>
+              <p>
+                Letters are reviewed before they go live so the homepage stays
+                thoughtful, safe, and easy to browse.
+              </p>
+              <DisclosureCard
+                summary="Open the fan letter form"
+                renderContent={() => (
+                  <form onSubmit={handleLetterSubmit}>
+                    <div className="form-row">
+                      <label htmlFor="letter-name">
+                        Fan Name
+                        <input
+                          id="letter-name"
+                          type="text"
+                          name="name"
+                          placeholder="Your name"
+                          required
+                        />
+                      </label>
+                      <label htmlFor="letter-tiktok">
+                        TikTok Link
+                        <input
+                          id="letter-tiktok"
+                          type="url"
+                          name="tiktok"
+                          placeholder="https://www.tiktok.com/@yourhandle"
+                        />
+                      </label>
+                    </div>
+                    <div className="form-row">
+                      <label htmlFor="letter-message-en">
+                        Message (English)
+                        <textarea
+                          id="letter-message-en"
+                          name="messageEn"
+                          rows="4"
+                          placeholder="Write your letter in English"
+                          required
+                        ></textarea>
+                      </label>
+                      <label htmlFor="letter-message-ar">
+                        Message (Arabic)
+                        <textarea
+                          id="letter-message-ar"
+                          name="messageAr"
+                          rows="4"
+                          placeholder="اكتب رسالتك بالعربية"
+                          className="arabic-input"
+                        ></textarea>
+                      </label>
+                    </div>
+                    <button className="primary-button" type="submit">
+                      Send letter
+                    </button>
+                    <p className="form-note">
+                      Approved letters are added to the homepage after review.
+                    </p>
+                    <FormMessage message={letterMessage} />
+                  </form>
                 )}
-                <div className="form-row">
-                  <label htmlFor="payment-sender">
-                    Sender Name
-                    <input
-                      id="payment-sender"
-                      type="text"
-                      name="senderName"
-                      required
-                    />
-                  </label>
-                  <label htmlFor="payment-reference">
-                    Reference Number
-                    <input
-                      id="payment-reference"
-                      type="text"
-                      name="referenceNumber"
-                      required
-                    />
-                  </label>
-                </div>
-                <button className="primary-button" type="submit">
-                  Submit Reference
+              />
+              {letters.length > featuredLetters.length ? (
+                <DisclosureCard
+                  summary="Browse the full letter wall"
+                  renderContent={() => (
+                    <div className="letters-grid">
+                      {letters.map((letter, index) => (
+                        <article
+                          key={`${letter.name}-full-${index}`}
+                          className="letter-card"
+                        >
+                          <p className="letter-name">{letter.name}</p>
+                          <p className="letter-message">{letter.messageEn}</p>
+                          {letter.messageAr ? (
+                            <p
+                              className="letter-message arabic"
+                              lang="ar"
+                              dir="rtl"
+                            >
+                              {letter.messageAr}
+                            </p>
+                          ) : null}
+                          <div className="letter-actions">
+                            {letter.tiktok ? (
+                              <a
+                                className="letter-link"
+                                href={letter.tiktok}
+                                target="_blank"
+                                rel="noopener"
+                              >
+                                TikTok
+                              </a>
+                            ) : null}
+                            <button
+                              className="secondary-button"
+                              type="button"
+                              onClick={() => downloadLetterPdf(letter)}
+                            >
+                              Download PDF
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                />
+              ) : null}
+            </aside>
+          </div>
+        </section>
+
+        <section className="section landing-section" id="gallery">
+          <div className="section-header reveal landing-section-header">
+            <div>
+              <p className="section-kicker">Visual archive</p>
+              <h2>Fan gallery previews stay playful without taking over the page</h2>
+              <p>
+                Browse the latest photos, edits, and art first, then expand the
+                full collection only when you want it.
+              </p>
+            </div>
+          </div>
+          <div className="landing-gallery-layout">
+            <div>
+              <div className="gallery-controls">
+                <button
+                  className={`tab-button ${activeGalleryTab === "photos" ? "is-active" : ""}`}
+                  type="button"
+                  onClick={() => setActiveGalleryTab("photos")}
+                >
+                  Photos
                 </button>
-                <p className="form-note">
-                  We use this to match your support with our records.
-                </p>
-                <FormMessage message={paymentMessage} />
-              </form>
-            </div>
-          </div>
-        </section>
-
-        <section className="section" id="join">
-          <div className="section-header reveal">
-            <div>
-              <h2>Join the Deer Army</h2>
-              <p>
-                Introduce yourself and become part of our warm, supportive
-                fandom family.
-              </p>
-            </div>
-            <img
-              className="section-icon"
-              src="/assets/deer-mark.svg"
-              alt="Deer icon"
-            />
-          </div>
-          <div className="join-grid">
-            <div className="contact-card reveal">
-              <h3>What to expect</h3>
-              <p>
-                Community updates, project invites, and a safe space to
-                celebrate Tommy &amp; Ghazel.
-              </p>
-              <p>
-                We review every request to keep the Deer Army welcoming and
-                kind.
-              </p>
-            </div>
-            <div className="form-card reveal">
-              <h3>Join Request Form</h3>
-              <form onSubmit={handleJoinSubmit}>
-                <div className="form-row">
-                  <label htmlFor="join-name">
-                    Name
-                    <input id="join-name" type="text" name="name" required />
-                  </label>
-                  <label htmlFor="join-email">
-                    Email
-                    <input id="join-email" type="email" name="email" required />
-                  </label>
-                </div>
-                <label htmlFor="join-location">
-                  Location (optional)
-                  <input
-                    id="join-location"
-                    type="text"
-                    name="location"
-                    placeholder="City, Country"
-                  />
-                </label>
-                <label htmlFor="join-message">
-                  Message (optional)
-                  <textarea
-                    id="join-message"
-                    name="message"
-                    rows="3"
-                  ></textarea>
-                </label>
-                <button className="primary-button" type="submit">
-                  Submit Join Request
+                <button
+                  className={`tab-button ${activeGalleryTab === "videos" ? "is-active" : ""}`}
+                  type="button"
+                  onClick={() => setActiveGalleryTab("videos")}
+                >
+                  Video Edits
                 </button>
-                <p className="form-note">
-                  Requests are reviewed before we add you to the community list.
-                </p>
-                <FormMessage message={joinMessage} />
-              </form>
+                <button
+                  className={`tab-button ${activeGalleryTab === "art" ? "is-active" : ""}`}
+                  type="button"
+                  onClick={() => setActiveGalleryTab("art")}
+                >
+                  Fan Art
+                </button>
+              </div>
+
+              {activeGalleryPreview.length === 0 ? (
+                <div className="landing-empty-card">
+                  <h3>No gallery items yet.</h3>
+                  <p>
+                    This space will fill with community visuals after the first
+                    approved uploads come in.
+                  </p>
+                </div>
+              ) : (
+                <div className="gallery-grid landing-gallery-preview-grid">
+                  {activeGalleryTab === "videos"
+                    ? activeGalleryPreview.map((item, index) => (
+                        <article
+                          key={`gallery-video-preview-${item.name}-${item.title}-${index}`}
+                          className="gallery-card"
+                        >
+                          <iframe
+                            src={item.embed}
+                            title={item.title}
+                            loading="lazy"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          ></iframe>
+                          <div className="gallery-info">
+                            <h4>{item.title}</h4>
+                            <p>By {item.name}</p>
+                          </div>
+                        </article>
+                      ))
+                    : activeGalleryPreview.map((item, index) => (
+                        <article
+                          key={`gallery-preview-${item.name}-${item.caption}-${index}`}
+                          className="gallery-card"
+                        >
+                          <img
+                            src={normalizeImageUrl(item.src)}
+                            alt={item.caption}
+                            loading="lazy"
+                            className="lightbox-trigger"
+                            onClick={() =>
+                              handleLightboxOpen(
+                                normalizeImageUrl(item.src),
+                                item.caption,
+                              )
+                            }
+                          />
+                          <div className="gallery-info">
+                            <h4>{item.caption}</h4>
+                            <p>By {item.name}</p>
+                          </div>
+                        </article>
+                      ))}
+                </div>
+              )}
+
+              {activeGalleryFull.length > activeGalleryPreview.length ? (
+                <DisclosureCard
+                  summary={`Open the full ${
+                    activeGalleryTab === "photos"
+                      ? "photo"
+                      : activeGalleryTab === "videos"
+                        ? "video edit"
+                        : "fan art"
+                  } gallery`}
+                  renderContent={() => (
+                    <div className="gallery-grid">
+                      {activeGalleryTab === "videos"
+                        ? activeGalleryFull.map((item, index) => (
+                            <article
+                              key={`gallery-video-full-${item.name}-${item.title}-${index}`}
+                              className="gallery-card"
+                            >
+                              <iframe
+                                src={item.embed}
+                                title={item.title}
+                                loading="lazy"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                              ></iframe>
+                              <div className="gallery-info">
+                                <h4>{item.title}</h4>
+                                <p>By {item.name}</p>
+                              </div>
+                            </article>
+                          ))
+                        : activeGalleryFull.map((item, index) => (
+                            <article
+                              key={`gallery-full-${item.name}-${item.caption}-${index}`}
+                              className="gallery-card"
+                            >
+                              <img
+                                src={normalizeImageUrl(item.src)}
+                                alt={item.caption}
+                                loading="lazy"
+                                className="lightbox-trigger"
+                                onClick={() =>
+                                  handleLightboxOpen(
+                                    normalizeImageUrl(item.src),
+                                    item.caption,
+                                  )
+                                }
+                              />
+                              <div className="gallery-info">
+                                <h4>{item.caption}</h4>
+                                <p>By {item.name}</p>
+                              </div>
+                            </article>
+                          ))}
+                    </div>
+                  )}
+                />
+              ) : null}
             </div>
+
+            <aside className="landing-sidebar-card landing-gallery-side">
+              <p className="section-kicker">Community archive</p>
+              <h3>Every approved upload becomes part of the Deer Army storybook.</h3>
+              <div className="landing-count-grid">
+                <article className="landing-count-card">
+                  <span>Photos</span>
+                  <strong>{galleryLists.photos.length}</strong>
+                </article>
+                <article className="landing-count-card">
+                  <span>Video edits</span>
+                  <strong>{galleryLists.videos.length}</strong>
+                </article>
+                <article className="landing-count-card">
+                  <span>Fan art</span>
+                  <strong>{galleryLists.art.length}</strong>
+                </article>
+              </div>
+              <DisclosureCard
+                summary="Share to the gallery"
+                renderContent={() => (
+                  <form onSubmit={handleGallerySubmit}>
+                    <div className="form-row">
+                      <label htmlFor="gallery-contributor">
+                        Contributor Name
+                        <input
+                          id="gallery-contributor"
+                          type="text"
+                          name="contributor"
+                          placeholder="Your name"
+                          required
+                        />
+                      </label>
+                      <label htmlFor="gallery-category">
+                        Category
+                        <select
+                          id="gallery-category"
+                          name="category"
+                          defaultValue="photos"
+                          required
+                        >
+                          <option value="photos">Photo</option>
+                          <option value="videos">Video Edit</option>
+                          <option value="art">Fan Art</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="form-row">
+                      <label htmlFor="gallery-file">
+                        Photo/Fan Art Upload
+                        <input
+                          id="gallery-file"
+                          type="file"
+                          name="file"
+                          accept="image/*"
+                        />
+                      </label>
+                      <label htmlFor="gallery-video">
+                        Video URL (YouTube/TikTok)
+                        <input
+                          id="gallery-video"
+                          type="url"
+                          name="videoUrl"
+                          placeholder="https://www.youtube.com/watch?v=..."
+                        />
+                      </label>
+                    </div>
+                    <label htmlFor="gallery-caption">
+                      Caption
+                      <input
+                        id="gallery-caption"
+                        type="text"
+                        name="caption"
+                        placeholder="Add a short caption"
+                        required
+                      />
+                    </label>
+                    <button className="primary-button" type="submit">
+                      Add to gallery
+                    </button>
+                    <p className="form-note">
+                      Submissions are reviewed before appearing on the homepage.
+                    </p>
+                    <FormMessage message={galleryMessage} />
+                  </form>
+                )}
+              />
+            </aside>
           </div>
         </section>
 
-        <section className="section" id="announcements">
-          <div className="section-header reveal">
+        <section className="section landing-section" id="explore">
+          <div className="section-header reveal landing-section-header">
             <div>
-              <h2>Announcements Board</h2>
+              <p className="section-kicker">Choose your next stop</p>
+              <h2>From here, the homepage hands you off to the deeper Deer Army spaces</h2>
               <p>
-                Important dates, community updates, and upcoming celebrations.
+                Explore merch, revisit the storybook, support the next project,
+                or catch up on how the community works behind the scenes.
               </p>
             </div>
-            <img
-              className="section-icon"
-              src="/assets/deer-mark.svg"
-              alt="Deer icon"
-            />
           </div>
-          <div className="card-grid">
-            {announcements.length === 0 ? (
-              <p className="empty-state">No announcements yet.</p>
-            ) : null}
-            {announcements.map((announcement, index) => (
-              <article key={`${announcement.title}-${index}`} className="card">
-                <span className="badge">{formatDate(announcement.date)}</span>
-                <h3>{announcement.title}</h3>
-                <p>{announcement.text}</p>
-              </article>
-            ))}
-          </div>
-        </section>
+          <div className="landing-pathways-grid">
+            <article className="pathway-card">
+              <p className="pathway-kicker">Merch</p>
+              <h3>Shop the latest community pieces</h3>
+              <p>
+                Printable stickers, tees, and future drops all live in the shop
+                with its own browsing flow.
+              </p>
+              <div className="pathway-actions">
+                <a className="primary-button" href="/shop">
+                  Open shop
+                </a>
+              </div>
+            </article>
 
-        <section className="section" id="about">
-          <div className="section-header reveal">
-            <div>
-              <h2>About Deer Army</h2>
-              <p>How this loving fandom formed and what we stand for.</p>
-            </div>
-            <img
-              className="section-icon"
-              src="/assets/deer-mark.svg"
-              alt="Deer icon"
-            />
-          </div>
-          <div className="about-grid">
-            <div className="about-card reveal">
-              <h3>Our Story</h3>
-              {about?.story ? (
-                <p>{about.story}</p>
+            <article className="pathway-card">
+              <p className="pathway-kicker">Videos &amp; moments</p>
+              <h3>Catch the community storybook in motion</h3>
+              {featuredVideoCollections.length ? (
+                <ul className="pathway-list">
+                  {featuredVideoCollections.map((collection) => (
+                    <li key={collection.id || collection.title}>
+                      <strong>{collection.title}</strong>
+                      <span>{collection.items.length} clips archived</span>
+                    </li>
+                  ))}
+                </ul>
               ) : (
-                <p className="empty-state">Add your story in the dashboard.</p>
-              )}
-            </div>
-            <div className="about-card reveal">
-              <h3>Mission Statement</h3>
-              {about?.mission ? (
-                <p>{about.mission}</p>
-              ) : (
-                <p className="empty-state">
-                  Add the mission statement in the dashboard.
+                <p>
+                  Behind-the-scenes edits and archived gift-day clips will appear
+                  here as soon as the next batch is approved.
                 </p>
               )}
-            </div>
-            <div className="about-card reveal">
-              <h3>Community Guidelines</h3>
-              {about?.guidelines?.length ? (
-                <ul>
-                  {about.guidelines.map((item, index) => (
+              <div className="pathway-actions">
+                <a className="ghost-button" href="#videos">
+                  Go to the storybook
+                </a>
+              </div>
+            </article>
+
+            <article className="pathway-card" id="about">
+              <p className="pathway-kicker">About Deer Army</p>
+              <h3>How the fandom holds its shape</h3>
+              <p>{storyPreview}</p>
+              {aboutGuidelines.length ? (
+                <ul className="pathway-list">
+                  {aboutGuidelines.map((item, index) => (
                     <li key={`${item}-${index}`}>{item}</li>
                   ))}
                 </ul>
               ) : (
-                <p className="empty-state">
-                  Add community guidelines in the dashboard.
-                </p>
+                <p>{missionPreview}</p>
               )}
+            </article>
+
+            <article className="pathway-card">
+              <p className="pathway-kicker">Support</p>
+              <h3>Back the next care project without losing the thread</h3>
+              <p>
+                The support hub keeps QR access, reference matching, and follow-up
+                in one place.
+              </p>
+              {featuredQrCards[0] ? (
+                <img
+                  src={getQrPreviewUrl(featuredQrCards[0].imageUrl)}
+                  alt="Featured Deer Army support QR"
+                  className="pathway-thumb"
+                  onError={(event) =>
+                    applyImageFallback(
+                      event,
+                      normalizeQrImageUrl(featuredQrCards[0].imageUrl),
+                    )
+                  }
+                />
+              ) : null}
+              <div className="pathway-actions">
+                <a className="secondary-button" href="#support">
+                  Open support hub
+                </a>
+                {featuredQrCards[0] ? (
+                  <button
+                    className="ghost-button"
+                    type="button"
+                    onClick={() => openQrModal(featuredQrCards[0])}
+                  >
+                    Preview QR
+                  </button>
+                ) : null}
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section className="section landing-section landing-storybook" id="videos">
+          <div className="section-header reveal landing-section-header">
+            <div>
+              <p className="section-kicker">Community storybook</p>
+              <h2>Gift moments and video highlights live together here</h2>
+              <p>
+                This keeps the homepage emotional and visual without dropping you
+                into a long unfiltered archive.
+              </p>
+            </div>
+          </div>
+          <div className="landing-story-grid">
+            <div className="landing-story-panel">
+              <div className="landing-story-heading">
+                <div>
+                  <p className="section-kicker" id="gifts">
+                    Gift timeline
+                  </p>
+                  <h3>Care projects we keep remembering</h3>
+                </div>
+                <span className="badge">{gifts.length} moments</span>
+              </div>
+              {featuredGifts.length === 0 ? (
+                <p className="empty-state">
+                  Gift highlights will appear here after the next project is
+                  added.
+                </p>
+              ) : (
+                <div className="landing-gift-list">
+                  {featuredGifts.map((gift, index) => (
+                    <article
+                      key={`${gift.title}-${index}`}
+                      className="landing-gift-card"
+                    >
+                      {gift.image ? (
+                        <img
+                          src={normalizeImageUrl(gift.image)}
+                          alt={gift.title}
+                          loading="lazy"
+                          className="lightbox-trigger"
+                          onClick={() =>
+                            handleLightboxOpen(
+                              normalizeImageUrl(gift.image),
+                              gift.title,
+                            )
+                          }
+                        />
+                      ) : null}
+                      <div>
+                        <span className="badge">{formatDate(gift.date)}</span>
+                        <h4>{gift.title}</h4>
+                        <p>{truncateText(gift.text, 120)}</p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+              {gifts.length > featuredGifts.length ? (
+                <DisclosureCard
+                  summary="Open the full gifts timeline"
+                  renderContent={() => (
+                    <div className="timeline">
+                      {gifts.map((gift, index) => (
+                        <article
+                          key={`${gift.title}-full-${index}`}
+                          className="timeline-item"
+                        >
+                          <div className="timeline-media">
+                            {gift.image ? (
+                              <img
+                                src={normalizeImageUrl(gift.image)}
+                                alt={gift.title}
+                                loading="lazy"
+                                className="lightbox-trigger"
+                                onClick={() =>
+                                  handleLightboxOpen(
+                                    normalizeImageUrl(gift.image),
+                                    gift.title,
+                                  )
+                                }
+                              />
+                            ) : null}
+                          </div>
+                          <div className="timeline-content">
+                            <span className="badge">{formatDate(gift.date)}</span>
+                            <h3>{gift.title}</h3>
+                            <p>{gift.text}</p>
+                            {gift.video ? (
+                              <div className="timeline-video">
+                                <iframe
+                                  src={gift.video}
+                                  title={`${gift.title} video`}
+                                  loading="lazy"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                ></iframe>
+                              </div>
+                            ) : null}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                />
+              ) : null}
+            </div>
+
+            <div className="landing-story-panel">
+              <div className="landing-story-heading">
+                <div>
+                  <p className="section-kicker">Video library</p>
+                  <h3>Behind-the-scenes highlights that still feel current</h3>
+                </div>
+                <span className="badge">{videoItemCount} clips</span>
+              </div>
+              {featuredVideoCollections.length === 0 ? (
+                <p className="empty-state">
+                  Video collections will appear here after the next upload is
+                  approved.
+                </p>
+              ) : (
+                <div className="landing-collection-list">
+                  {featuredVideoCollections.map((collection) => (
+                    <article
+                      key={collection.id || collection.title}
+                      className="landing-video-collection"
+                    >
+                      <div className="landing-video-copy">
+                        <h4>{collection.title}</h4>
+                        {collection.description ? (
+                          <p>{truncateText(collection.description, 110)}</p>
+                        ) : null}
+                      </div>
+                      {collection.items[0] ? (
+                        <div className="timeline-video">
+                          <iframe
+                            src={collection.items[0].url}
+                            title={collection.items[0].title}
+                            loading="lazy"
+                            allow="autoplay; encrypted-media; fullscreen"
+                            allowFullScreen
+                          ></iframe>
+                        </div>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              )}
+              {videoCollections.length > featuredVideoCollections.length ? (
+                <DisclosureCard
+                  summary="Open the full video library"
+                  renderContent={() =>
+                    videoCollections.map((collection) => {
+                      if (collection.layout === "CAROUSEL") {
+                        return (
+                          <VideoCarousel
+                            key={collection.id || collection.title}
+                            collection={collection}
+                          />
+                        );
+                      }
+                      return (
+                        <div
+                          key={collection.id || collection.title}
+                          className="video-collection"
+                        >
+                          <h3>{collection.title}</h3>
+                          {collection.description ? (
+                            <p>{collection.description}</p>
+                          ) : null}
+                          <div className="card-grid">
+                            {collection.items.map((item, index) => (
+                              <article
+                                key={`${item.title}-${index}`}
+                                className="card"
+                              >
+                                <h3>{item.title}</h3>
+                                <div className="timeline-video">
+                                  <iframe
+                                    src={item.url}
+                                    title={item.title}
+                                    loading="lazy"
+                                    allow="autoplay; encrypted-media; fullscreen"
+                                    allowFullScreen
+                                  ></iframe>
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })
+                  }
+                />
+              ) : null}
             </div>
           </div>
         </section>
 
-        <section className="section" id="contact">
-          <div className="section-header reveal">
+        <section className="section landing-section landing-community-hub" id="support">
+          <div className="section-header reveal landing-section-header">
             <div>
-              <h2>Contact &amp; Submit</h2>
+              <p className="section-kicker">Support and participation</p>
+              <h2>When someone wants to help, join, or submit something, the path stays clear</h2>
               <p>
-                Share letters, photos, videos, or coordination notes with the
-                Deer Army team.
+                The homepage stays calm, but the practical actions are still here
+                when the community needs them.
               </p>
             </div>
-            <img
-              className="section-icon"
-              src="/assets/deer-mark.svg"
-              alt="Deer icon"
-            />
           </div>
-          <div className="contact-grid">
-            <div className="form-card reveal">
-              <h3>General Submission</h3>
-              <form onSubmit={handleContactSubmit}>
-                <div className="form-row">
-                  <label htmlFor="contact-name">
-                    Name
-                    <input id="contact-name" type="text" name="name" required />
-                  </label>
-                  <label htmlFor="contact-email">
-                    Email
-                    <input
-                      id="contact-email"
-                      type="email"
-                      name="email"
-                      placeholder="you@example.com"
-                      required
-                    />
-                  </label>
+          <div className="landing-community-grid">
+            <div className="landing-community-main">
+              <div className="support-grid landing-support-grid">
+                <div className="qr-grid">
+                  {paymentQrs.length === 0 ? (
+                    <div className="contact-card qr-card">
+                      <h3>Support the Deer Army</h3>
+                      <p className="empty-state">
+                        QR code is not available yet. Please check back soon.
+                      </p>
+                    </div>
+                  ) : (
+                    paymentQrs.map((qr) => (
+                      <article
+                        key={qr.id}
+                        className={`contact-card qr-card ${qr.id === activeQrId ? "is-selected" : ""}`}
+                      >
+                        <h3>{qr.title || "Deer Army QR Code"}</h3>
+                        {qr.note ? <p>{qr.note}</p> : null}
+                        <img
+                          src={getQrPreviewUrl(qr.imageUrl)}
+                          alt="Deer Army payment QR code"
+                          className="qr-image"
+                          onError={(event) =>
+                            applyImageFallback(
+                              event,
+                              normalizeQrImageUrl(qr.imageUrl),
+                            )
+                          }
+                        />
+                        <button
+                          className="secondary-button"
+                          type="button"
+                          onClick={() => openQrModal(qr)}
+                        >
+                          Use this QR
+                        </button>
+                      </article>
+                    ))
+                  )}
                 </div>
-                <label htmlFor="contact-type">
-                  Submission Type
-                  <select id="contact-type" name="type" required>
-                    <option value="letter">Letter</option>
-                    <option value="photo">Photo</option>
-                    <option value="video">Video</option>
-                    <option value="announcement">Announcement</option>
-                    <option value="other">Other</option>
-                  </select>
-                </label>
-                <label htmlFor="contact-message">
-                  Message
-                  <textarea
-                    id="contact-message"
-                    name="message"
-                    rows="4"
-                    required
-                  ></textarea>
-                </label>
-                <button className="primary-button" type="submit">
-                  Send to Deer Army
-                </button>
-                <p className="form-note">
-                  Submissions are saved for the team to review.
-                </p>
-                <FormMessage message={contactMessage} />
-              </form>
-            </div>
-            <div className="contact-card reveal">
-              <h3>Find Us on TikTok</h3>
-              <ul className="social-list">
-                {TIKTOK_LINKS.map((link) => (
-                  <li key={link.url}>
-                    <a href={link.url} target="_blank" rel="noopener">
-                      {link.name}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-              <div className="contact-note">
-                <p>
-                  Email for coordination:{" "}
-                  <a href="mailto:deerarmy@communitymail.com">
-                    deerarmy@communitymail.com
-                  </a>
-                </p>
-                <p>
-                  We&apos;re here to help your surprise reach Tommy &amp; Ghazel
-                  with love.
-                </p>
+                <div className="form-card">
+                  <h3>Share Your Payment Reference</h3>
+                  <form onSubmit={handlePaymentSubmit}>
+                    {paymentQrs.length > 1 ? (
+                      <label htmlFor="payment-qr-select">
+                        Select QR
+                        <select
+                          id="payment-qr-select"
+                          name="qrCodeId"
+                          value={activeQrId}
+                          onChange={(event) => setActiveQrId(event.target.value)}
+                          required
+                        >
+                          {paymentQrs.map((qr) => (
+                            <option key={qr.id} value={qr.id}>
+                              {qr.title || "Deer Army QR Code"}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : (
+                      <input type="hidden" name="qrCodeId" value={activeQrId} />
+                    )}
+                    <div className="form-row">
+                      <label htmlFor="payment-sender">
+                        Sender Name
+                        <input
+                          id="payment-sender"
+                          type="text"
+                          name="senderName"
+                          required
+                        />
+                      </label>
+                      <label htmlFor="payment-reference">
+                        Reference Number
+                        <input
+                          id="payment-reference"
+                          type="text"
+                          name="referenceNumber"
+                          required
+                        />
+                      </label>
+                    </div>
+                    <button className="primary-button" type="submit">
+                      Submit reference
+                    </button>
+                    <p className="form-note">
+                      We use this to match your support with our records.
+                    </p>
+                    <FormMessage message={paymentMessage} />
+                  </form>
+                </div>
               </div>
+            </div>
+
+            <div className="landing-community-side">
+              <article className="contact-card" id="announcements">
+                <p className="section-kicker">Community board</p>
+                <h3>Important dates and notes stay visible without taking over the page.</h3>
+                {featuredAnnouncements.length === 0 ? (
+                  <p className="empty-state">
+                    Community board notes will appear here once the next
+                    announcement is published.
+                  </p>
+                ) : (
+                  <div className="landing-board-list">
+                    {featuredAnnouncements.map((announcement, index) => (
+                      <article
+                        key={`${announcement.title}-${index}`}
+                        className="landing-board-card"
+                      >
+                        <span className="badge">{formatDate(announcement.date)}</span>
+                        <h4>{announcement.title}</h4>
+                        <p>{truncateText(announcement.text, 120)}</p>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </article>
+
+              <DisclosureCard
+                id="join"
+                summary="Open the join request form"
+                renderContent={() => (
+                  <form onSubmit={handleJoinSubmit}>
+                    <div className="form-row">
+                      <label htmlFor="join-name">
+                        Name
+                        <input id="join-name" type="text" name="name" required />
+                      </label>
+                      <label htmlFor="join-email">
+                        Email
+                        <input id="join-email" type="email" name="email" required />
+                      </label>
+                    </div>
+                    <label htmlFor="join-location">
+                      Location (optional)
+                      <input
+                        id="join-location"
+                        type="text"
+                        name="location"
+                        placeholder="City, Country"
+                      />
+                    </label>
+                    <label htmlFor="join-message">
+                      Message (optional)
+                      <textarea
+                        id="join-message"
+                        name="message"
+                        rows="3"
+                      ></textarea>
+                    </label>
+                    <button className="primary-button" type="submit">
+                      Submit join request
+                    </button>
+                    <p className="form-note">
+                      Requests are reviewed before we add you to the community list.
+                    </p>
+                    <FormMessage message={joinMessage} />
+                  </form>
+                )}
+              />
+
+              <DisclosureCard
+                id="contact"
+                summary="Contact the Deer Army team"
+                renderContent={() => (
+                  <>
+                    <form onSubmit={handleContactSubmit}>
+                      <div className="form-row">
+                        <label htmlFor="contact-name">
+                          Name
+                          <input id="contact-name" type="text" name="name" required />
+                        </label>
+                        <label htmlFor="contact-email">
+                          Email
+                          <input
+                            id="contact-email"
+                            type="email"
+                            name="email"
+                            placeholder="you@example.com"
+                            required
+                          />
+                        </label>
+                      </div>
+                      <label htmlFor="contact-type">
+                        Submission Type
+                        <select id="contact-type" name="type" required>
+                          <option value="letter">Letter</option>
+                          <option value="photo">Photo</option>
+                          <option value="video">Video</option>
+                          <option value="announcement">Announcement</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </label>
+                      <label htmlFor="contact-message">
+                        Message
+                        <textarea
+                          id="contact-message"
+                          name="message"
+                          rows="4"
+                          required
+                        ></textarea>
+                      </label>
+                      <button className="primary-button" type="submit">
+                        Send to Deer Army
+                      </button>
+                      <p className="form-note">
+                        Submissions are saved for the team to review.
+                      </p>
+                      <FormMessage message={contactMessage} />
+                    </form>
+                    <div className="landing-contact-meta">
+                      <h4>Find us on TikTok</h4>
+                      <ul className="social-list">
+                        {TIKTOK_LINKS.map((link) => (
+                          <li key={link.url}>
+                            <a href={link.url} target="_blank" rel="noopener">
+                              {link.name}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                      <p>
+                        Email for coordination:{" "}
+                        <a href="mailto:deerarmy@communitymail.com">
+                          deerarmy@communitymail.com
+                        </a>
+                      </p>
+                    </div>
+                  </>
+                )}
+              />
             </div>
           </div>
         </section>
@@ -1744,13 +2230,15 @@ export default function HomeClient({
         <div
           className="modal-overlay"
           role="presentation"
-          onClick={() => setQrModal({ open: false, qr: null })}
+          onClick={closeQrModal}
         >
           <div
             className="modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="qr-modal-title"
+            ref={qrModalRef}
+            tabIndex={-1}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
@@ -1760,7 +2248,7 @@ export default function HomeClient({
               <button
                 type="button"
                 className="light-button modal-close"
-                onClick={() => setQrModal({ open: false, qr: null })}
+                onClick={closeQrModal}
               >
                 Close
               </button>
@@ -1782,7 +2270,7 @@ export default function HomeClient({
                 <button
                   type="button"
                   className="primary-button"
-                  onClick={() => setQrModal({ open: false, qr: null })}
+                  onClick={closeQrModal}
                 >
                   Continue
                 </button>
@@ -1792,15 +2280,19 @@ export default function HomeClient({
         </div>
       ) : null}
 
-      <footer className="site-footer">
-        <div>
-          <p>Made with love by the Deer Army community.</p>
+      <footer className="site-footer landing-footer">
+        <div className="landing-footer-copy">
+          <p>Deer Army is built to help the community explore, remember, and keep showing up.</p>
           <p>Website developed by Lavender.</p>
           <p className="arabic" lang="ar" dir="rtl">
             جيش الغزلان يحبكم دائمًا.
           </p>
         </div>
-        <div className="footer-actions">
+        <div className="landing-footer-links">
+          <a href="#updates">Updates</a>
+          <a href="#letters">Letters</a>
+          <a href="#gallery">Gallery</a>
+          <a href="/shop">Shop</a>
           <a href="#home">Back to top</a>
         </div>
       </footer>
@@ -1808,19 +2300,22 @@ export default function HomeClient({
       {lightbox.open ? (
         <div
           className="lightbox"
-          onClick={handleLightboxClose}
+          onClick={closeLightbox}
           role="dialog"
           aria-modal="true"
+          aria-label={lightbox.caption || "Expanded image view"}
         >
           <div
             className="lightbox-content"
+            ref={lightboxRef}
+            tabIndex={-1}
             onClick={(event) => event.stopPropagation()}
           >
             <button
               className="lightbox-close"
               type="button"
               aria-label="Close"
-              onClick={handleLightboxClose}
+              onClick={closeLightbox}
             >
               &times;
             </button>
