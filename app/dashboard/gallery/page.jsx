@@ -2,9 +2,10 @@ import { prisma } from "../../../lib/prisma";
 import AdminForm from "../admin-form";
 import Modal from "../modal";
 import { createGalleryItem, updateGalleryItem, deleteGalleryItem } from "../actions";
+import { getGalleryImageList } from "../../gallery-data.mjs";
 import {
   applySearch,
-  normalizeImageUrl,
+  getQrPreviewUrl,
   normalizeSearch,
   paginate,
   parsePage,
@@ -59,7 +60,7 @@ export default async function GalleryPage({ searchParams }) {
             </label>
             <div className="form-row">
               <label htmlFor="admin-gallery-src">
-                Image URL (for photos/art)
+                Primary Image URL (for photos/art)
                 <input id="admin-gallery-src" type="text" name="src" placeholder="https://..." />
               </label>
               <label htmlFor="admin-gallery-embed">
@@ -72,6 +73,15 @@ export default async function GalleryPage({ searchParams }) {
                 />
               </label>
             </div>
+            <label htmlFor="admin-gallery-images">
+              Additional Image URLs (one per line)
+              <textarea
+                id="admin-gallery-images"
+                name="imageUrls"
+                rows="4"
+                placeholder="https://...\nhttps://..."
+              ></textarea>
+            </label>
             <p className="form-note">Fill only the image URL for photos/art or the video URL for video edits.</p>
             <button className="primary-button" type="submit">
               Publish Gallery Item
@@ -129,49 +139,66 @@ export default async function GalleryPage({ searchParams }) {
                                 ></iframe>
                               </div>
                             ) : null}
-                            {item.category !== "VIDEOS" && item.src ? (
-                              <img
-                                src={normalizeImageUrl(item.src)}
-                                alt={item.caption}
-                                className="dashboard-image"
-                              />
-                            ) : null}
-                          </div>
-                          <div className="form-card">
-                            <h4>Edit Gallery Item</h4>
-                            <AdminForm action={updateGalleryItem} className="admin-form">
-                              <input type="hidden" name="id" value={item.id} />
-                              <label>
-                                Contributor Name
-                                <input type="text" name="name" defaultValue={item.name} required />
-                              </label>
-                              <label>
-                                Category
-                                <select name="category" defaultValue={item.category} required>
-                                  <option value="PHOTOS">Photo</option>
-                                  <option value="VIDEOS">Video Edit</option>
-                                  <option value="ART">Fan Art</option>
-                                </select>
-                              </label>
-                              <label>
-                                Caption / Title
-                                <input type="text" name="caption" defaultValue={item.caption} required />
-                              </label>
-                              <label>
-                                Image URL
-                                <input type="text" name="src" defaultValue={item.src || ""} />
-                              </label>
-                              <label>
-                                Video URL
-                                <input type="text" name="embed" defaultValue={item.embed || ""} />
-                              </label>
-                              <div className="action-row">
-                                <button className="secondary-button" type="submit">
-                                  Save Changes
-                                </button>
+                            {item.category !== "VIDEOS" && getGalleryImageList(item).length ? (
+                              <div className="gallery-grid">
+                                {getGalleryImageList(item).map((imageUrl, imageIndex) => (
+                                  <img
+                                    key={`${item.id}-image-${imageIndex}`}
+                                    src={getQrPreviewUrl(imageUrl)}
+                                    alt={`${item.caption} ${imageIndex + 1}`}
+                                    className="dashboard-image"
+                                  />
+                                ))}
                               </div>
-                            </AdminForm>
+                            ) : (
+                              <p className="empty-state">No gallery image yet.</p>
+                            )}
                           </div>
+                        </div>
+                      </Modal>
+                      <Modal triggerLabel="Edit" title={`Edit ${item.caption}`} triggerClassName="ghost-button">
+                        <div className="form-card">
+                          <h4>Edit Gallery Item</h4>
+                          <AdminForm action={updateGalleryItem} className="admin-form">
+                            <input type="hidden" name="id" value={item.id} />
+                            <label>
+                              Contributor Name
+                              <input type="text" name="name" defaultValue={item.name} required />
+                            </label>
+                            <label>
+                              Category
+                              <select name="category" defaultValue={item.category} required>
+                                <option value="PHOTOS">Photo</option>
+                                <option value="VIDEOS">Video Edit</option>
+                                <option value="ART">Fan Art</option>
+                              </select>
+                            </label>
+                            <label>
+                              Caption / Title
+                              <input type="text" name="caption" defaultValue={item.caption} required />
+                            </label>
+                            <label>
+                              Primary Image URL
+                              <input type="text" name="src" defaultValue={item.src || ""} />
+                            </label>
+                            <label>
+                              Additional Image URLs
+                              <textarea
+                                name="imageUrls"
+                                rows="4"
+                                defaultValue={(item.imageUrls || []).join("\n")}
+                              />
+                            </label>
+                            <label>
+                              Video URL
+                              <input type="text" name="embed" defaultValue={item.embed || ""} />
+                            </label>
+                            <div className="action-row">
+                              <button className="secondary-button" type="submit">
+                                Save Changes
+                              </button>
+                            </div>
+                          </AdminForm>
                         </div>
                       </Modal>
                       <AdminForm action={deleteGalleryItem} confirmMessage="Delete this gallery item?">

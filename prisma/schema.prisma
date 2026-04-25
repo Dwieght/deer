@@ -63,6 +63,7 @@ model GallerySubmission {
   caption   String
   category  GalleryCategory
   src       String?
+  imageUrls String[]
   embed     String?
   status    SubmissionStatus @default(PENDING)
   createdAt DateTime         @default(now())

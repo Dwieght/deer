@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CAROUSEL_SLIDES, TIKTOK_LINKS } from "./content";
+import {
+  buildGalleryLightboxState,
+  moveGalleryLightboxIndex,
+} from "./gallery-lightbox.mjs";
 
 const SHARE_OPTIONS = [
   { type: "copy", label: "Copy Link" },
@@ -117,6 +121,30 @@ function normalizeQrImageUrl(url) {
 function getQrPreviewUrl(url) {
   const thumb = driveThumbnailUrl(url);
   return thumb || normalizeQrImageUrl(url);
+}
+
+function getGalleryPreviewUrl(url) {
+  return driveThumbnailUrl(url) || normalizeImageUrl(url);
+}
+
+function getGalleryImages(item) {
+  const values =
+    Array.isArray(item?.images) && item.images.length ? item.images : [item?.src];
+
+  return Array.from(
+    new Set(
+      values
+        .map((value) => String(value || "").trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function buildGalleryLightboxEntries(item) {
+  return getGalleryImages(item).map((imageUrl) => ({
+    src: getGalleryPreviewUrl(imageUrl),
+    fallbackSrc: normalizeImageUrl(imageUrl),
+  }));
 }
 
 function applyImageFallback(event, fallback) {
@@ -324,6 +352,64 @@ function VideoCarousel({ collection }) {
   );
 }
 
+function GalleryImageCard({ item, onImageOpen, thumbLimit = 3 }) {
+  const imageUrls = getGalleryImages(item);
+  const primaryImage = imageUrls[0];
+
+  if (!primaryImage) {
+    return (
+      <article className="gallery-card">
+        <div className="gallery-card-empty">Image preview unavailable.</div>
+        <div className="gallery-info">
+          <h4>{item.caption}</h4>
+          <p>By {item.name}</p>
+        </div>
+      </article>
+    );
+  }
+
+  return (
+    <article className="gallery-card">
+      <img
+        src={getGalleryPreviewUrl(primaryImage)}
+        alt={item.caption}
+        loading="lazy"
+        className="lightbox-trigger"
+        onClick={() => onImageOpen(item, 0)}
+        onError={(event) => applyImageFallback(event, normalizeImageUrl(primaryImage))}
+      />
+      {imageUrls.length > 1 ? (
+        <div className="gallery-thumb-row" aria-label={`${item.caption} image options`}>
+          {imageUrls.slice(0, thumbLimit).map((imageUrl, imageIndex) => (
+            <button
+              key={`${item.caption}-thumb-${imageIndex}`}
+              type="button"
+              className="gallery-thumb-button"
+              aria-label={`Open ${item.caption} image ${imageIndex + 1}`}
+              onClick={() => onImageOpen(item, imageIndex)}
+            >
+              <img
+                src={getGalleryPreviewUrl(imageUrl)}
+                alt=""
+                className="gallery-thumb-image"
+                loading="lazy"
+                onError={(event) => applyImageFallback(event, normalizeImageUrl(imageUrl))}
+              />
+            </button>
+          ))}
+          {imageUrls.length > thumbLimit ? (
+            <span className="gallery-thumb-more">+{imageUrls.length - thumbLimit}</span>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="gallery-info">
+        <h4>{item.caption}</h4>
+        <p>By {item.name}</p>
+      </div>
+    </article>
+  );
+}
+
 export default function HomeClient({
   letters = [],
   gallery = { photos: [], videos: [], art: [] },
@@ -339,7 +425,10 @@ export default function HomeClient({
   const [lightbox, setLightbox] = useState({
     open: false,
     src: "",
+    fallbackSrc: "",
     caption: "",
+    images: [],
+    imageIndex: 0,
   });
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [letterMessage, setLetterMessage] = useState(null);
@@ -485,6 +574,18 @@ export default function HomeClient({
         return;
       }
 
+      if (event.key === "ArrowLeft" && lightbox.images.length > 1) {
+        event.preventDefault();
+        setLightbox((current) => moveGalleryLightboxIndex(current, -1));
+        return;
+      }
+
+      if (event.key === "ArrowRight" && lightbox.images.length > 1) {
+        event.preventDefault();
+        setLightbox((current) => moveGalleryLightboxIndex(current, 1));
+        return;
+      }
+
       trapFocus(event, lightboxRef.current);
     };
 
@@ -494,7 +595,7 @@ export default function HomeClient({
 
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [lightbox.open]);
+  }, [lightbox.open, lightbox.images.length]);
 
   useEffect(() => {
     if (!paymentQrs.length) {
@@ -853,14 +954,45 @@ export default function HomeClient({
     setQrModal({ open: true, qr });
   };
 
-  const handleLightboxOpen = (src, caption) => {
+  const handleLightboxOpen = (src, caption, fallbackSrc = "") => {
     lastFocusedElementRef.current = document.activeElement;
-    setLightbox({ open: true, src, caption });
+    setLightbox({
+      open: true,
+      src,
+      fallbackSrc,
+      caption,
+      images: [],
+      imageIndex: 0,
+    });
   };
 
   const closeLightbox = () => {
-    setLightbox({ open: false, src: "", caption: "" });
+    setLightbox({
+      open: false,
+      src: "",
+      fallbackSrc: "",
+      caption: "",
+      images: [],
+      imageIndex: 0,
+    });
     restoreLastFocus();
+  };
+
+  const handleGalleryLightboxOpen = (item, imageIndex = 0) => {
+    lastFocusedElementRef.current = document.activeElement;
+    setLightbox(
+      buildGalleryLightboxState(
+        {
+          caption: item.caption,
+          images: buildGalleryLightboxEntries(item),
+        },
+        imageIndex,
+      ),
+    );
+  };
+
+  const moveLightbox = (delta) => {
+    setLightbox((current) => moveGalleryLightboxIndex(current, delta));
   };
 
   const featuredUpdates = updates.slice(0, 3);
@@ -1499,27 +1631,11 @@ export default function HomeClient({
                         </article>
                       ))
                     : activeGalleryPreview.map((item, index) => (
-                        <article
+                        <GalleryImageCard
                           key={`gallery-preview-${item.name}-${item.caption}-${index}`}
-                          className="gallery-card"
-                        >
-                          <img
-                            src={normalizeImageUrl(item.src)}
-                            alt={item.caption}
-                            loading="lazy"
-                            className="lightbox-trigger"
-                            onClick={() =>
-                              handleLightboxOpen(
-                                normalizeImageUrl(item.src),
-                                item.caption,
-                              )
-                            }
-                          />
-                          <div className="gallery-info">
-                            <h4>{item.caption}</h4>
-                            <p>By {item.name}</p>
-                          </div>
-                        </article>
+                          item={item}
+                          onImageOpen={handleGalleryLightboxOpen}
+                        />
                       ))}
                 </div>
               )}
@@ -1555,27 +1671,12 @@ export default function HomeClient({
                             </article>
                           ))
                         : activeGalleryFull.map((item, index) => (
-                            <article
+                            <GalleryImageCard
                               key={`gallery-full-${item.name}-${item.caption}-${index}`}
-                              className="gallery-card"
-                            >
-                              <img
-                                src={normalizeImageUrl(item.src)}
-                                alt={item.caption}
-                                loading="lazy"
-                                className="lightbox-trigger"
-                                onClick={() =>
-                                  handleLightboxOpen(
-                                    normalizeImageUrl(item.src),
-                                    item.caption,
-                                  )
-                                }
-                              />
-                              <div className="gallery-info">
-                                <h4>{item.caption}</h4>
-                                <p>By {item.name}</p>
-                              </div>
-                            </article>
+                              item={item}
+                              onImageOpen={handleGalleryLightboxOpen}
+                              thumbLimit={4}
+                            />
                           ))}
                     </div>
                   )}
@@ -2319,7 +2420,31 @@ export default function HomeClient({
             >
               &times;
             </button>
-            <img src={lightbox.src} alt="Expanded view" />
+            <img
+              src={lightbox.src}
+              alt="Expanded view"
+              onError={(event) => applyImageFallback(event, lightbox.fallbackSrc)}
+            />
+            {lightbox.images.length > 1 ? (
+              <div className="lightbox-nav">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => moveLightbox(-1)}
+                  aria-label="Previous image"
+                >
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => moveLightbox(1)}
+                  aria-label="Next image"
+                >
+                  Next
+                </button>
+              </div>
+            ) : null}
             <p>{lightbox.caption}</p>
           </div>
         </div>

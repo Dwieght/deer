@@ -317,12 +317,20 @@ export async function createGalleryItem(_prevState, formData) {
   const caption = String(formData.get("caption") || "").trim();
   const category = String(formData.get("category") || "").trim().toUpperCase();
   const srcRaw = String(formData.get("src") || "").trim();
+  const imageUrlsRaw = String(formData.get("imageUrls") || "").trim();
   const embedRaw = String(formData.get("embed") || "").trim();
   if (!name || !caption || !GALLERY_CATEGORIES.has(category)) {
     return fail("Name, caption, and category are required.");
   }
   const embed = category === "VIDEOS" ? normalizeEmbedUrl(embedRaw) : "";
   const src = category === "VIDEOS" ? "" : normalizeDriveImageUrl(srcRaw);
+  const imageUrls =
+    category === "VIDEOS"
+      ? []
+      : imageUrlsRaw
+          .split("\n")
+          .map((line) => normalizeDriveImageUrl(line.trim()))
+          .filter(Boolean);
   if (category === "VIDEOS" && !embed) {
     return fail("A video URL is required.");
   }
@@ -336,6 +344,7 @@ export async function createGalleryItem(_prevState, formData) {
         caption,
         category,
         src: category === "VIDEOS" ? null : src,
+        imageUrls,
         embed: category === "VIDEOS" ? embed : null,
         status: "APPROVED",
         reviewedAt: new Date(),
@@ -356,12 +365,20 @@ export async function updateGalleryItem(_prevState, formData) {
   const caption = String(formData.get("caption") || "").trim();
   const category = String(formData.get("category") || "").trim().toUpperCase();
   const srcRaw = String(formData.get("src") || "").trim();
+  const imageUrlsRaw = String(formData.get("imageUrls") || "").trim();
   const embedRaw = String(formData.get("embed") || "").trim();
   if (!id || !name || !caption || !GALLERY_CATEGORIES.has(category)) {
     return fail("Name, caption, and category are required.");
   }
   const embed = category === "VIDEOS" ? normalizeEmbedUrl(embedRaw) : "";
   const src = category === "VIDEOS" ? "" : normalizeDriveImageUrl(srcRaw);
+  const imageUrls =
+    category === "VIDEOS"
+      ? []
+      : imageUrlsRaw
+          .split("\n")
+          .map((line) => normalizeDriveImageUrl(line.trim()))
+          .filter(Boolean);
   if (category === "VIDEOS" && !embed) {
     return fail("A video URL is required.");
   }
@@ -376,6 +393,7 @@ export async function updateGalleryItem(_prevState, formData) {
         caption,
         category,
         src: category === "VIDEOS" ? null : src,
+        imageUrls,
         embed: category === "VIDEOS" ? embed : null,
       },
     });

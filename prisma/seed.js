@@ -214,6 +214,7 @@ async function main() {
         caption: item.caption,
         category: item.category,
         src: item.src || null,
+        imageUrls: item.imageUrls || [],
         embed: item.embed || null,
         status: "APPROVED",
         reviewedAt: new Date(),

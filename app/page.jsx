@@ -1,6 +1,7 @@
 import { prisma } from "../lib/prisma";
 import HomeClient from "./home-client";
 import { DEFAULT_GIFTS } from "./content";
+import { buildApprovedGallery } from "./gallery-data.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,42 +66,7 @@ async function getApprovedData() {
       tiktok: letter.tiktok,
     }));
 
-    const approvedGallery = {
-      photos: [],
-      videos: [],
-      art: [],
-    };
-
-    gallery.forEach((item) => {
-      const category = item.category;
-      if (category === "VIDEOS") {
-        if (item.embed) {
-          approvedGallery.videos.push({
-            name: item.name,
-            title: item.caption,
-            embed: item.embed,
-          });
-        }
-        return;
-      }
-      if (category === "ART") {
-        if (item.src) {
-          approvedGallery.art.push({
-            name: item.name,
-            caption: item.caption,
-            src: normalizeImageUrl(item.src),
-          });
-        }
-        return;
-      }
-      if (item.src) {
-        approvedGallery.photos.push({
-          name: item.name,
-          caption: item.caption,
-          src: normalizeImageUrl(item.src),
-        });
-      }
-    });
+    const approvedGallery = buildApprovedGallery(gallery, normalizeImageUrl);
 
     const updates = announcements.filter((item) => item.type === "UPDATE");
     const boardAnnouncements = announcements.filter((item) => item.type === "BOARD");
